@@ -1,0 +1,158 @@
+spring:
+  application:
+    name: monitor-judicial
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/monitor_judicial}
+    username: ${DATABASE_USERNAME:monitor}
+    password: ${DATABASE_PASSWORD:monitor}
+    hikari:
+      maximum-pool-size: ${DATABASE_POOL_SIZE:20}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        jdbc.batch_size: 50
+  flyway:
+    enabled: true
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+  cache:
+    type: redis
+    redis:
+      time-to-live: PT1H
+      key-prefix: "mj:"
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    publisher-confirm-type: simple
+    listener:
+      simple:
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1s
+          multiplier: 2
+  mail:
+    host: ${MAIL_HOST:localhost}
+    port: ${MAIL_PORT:1025}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  shutdown: graceful
+  forward-headers-strategy: framework
+  error:
+    include-stacktrace: never
+    include-message: never
+
+security:
+  jwt:
+    secret: ${JWT_SECRET:}
+    issuer: monitor-judicial
+    access-token-validity: PT15M
+    refresh-token-validity: P7D
+  bcrypt-strength: 12
+  rate-limit:
+    tokens-per-minute: 10
+    api-per-minute: 300
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+  bootstrap-admin:
+    email: ${ADMIN_EMAIL:}
+    password: ${ADMIN_PASSWORD:}
+
+djen:
+  base-url: ${DJEN_BASE_URL:https://comunicaapi.pje.jus.br}
+  page-size: 100
+  max-pages: 50
+  connect-timeout: PT5S
+  read-timeout: PT30S
+  max-attempts: 3
+  paths:
+    communications: /api/v1/comunicacao
+    communication: /api/v1/comunicacao/{hash}
+    certificate: /api/v1/comunicacao/{hash}/certidao
+    tribunals: /api/v1/comunicacao/tribunal
+    journal: /api/v1/caderno/{sigla}/{data}/{meio}
+
+monitoring:
+  cron: ${MONITORING_CRON:0 0 6 * * *}
+  zone: America/Sao_Paulo
+  max-concurrency: ${MONITORING_MAX_CONCURRENCY:8}
+  initial-lookback-days: 30
+  overlap-days: 1
+  scheduler:
+    enabled: true
+
+outbox:
+  relay-interval: PT2S
+  relay:
+    enabled: true
+
+notifications:
+  email:
+    from: ${MAIL_FROM:Monitor Judicial <nao-responda@monitorjudicial.app>}
+  whatsapp:
+    phone-number-id: ${WHATSAPP_PHONE_NUMBER_ID:}
+    access-token: ${WHATSAPP_ACCESS_TOKEN:}
+    template-name: ${WHATSAPP_TEMPLATE:nova_publicacao}
+    template-language: pt_BR
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
+      group:
+        readiness:
+          include: readinessState,db,redis,rabbit
+  health:
+    # SMTP fora do ar não derruba a API: a falha fica registrada em cada notificação.
+    mail:
+      enabled: false
+  metrics:
+    tags:
+      application: monitor-judicial
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+        monitoring.execution.duration: true
+  tracing:
+    sampling:
+      probability: ${TRACING_SAMPLING:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+logging:
+  level:
+    br.com.monitorjudicial: INFO
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html

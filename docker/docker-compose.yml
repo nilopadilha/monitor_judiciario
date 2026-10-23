@@ -1,0 +1,92 @@
+# Ambiente completo local:  docker compose -f docker/docker-compose.yml up --build
+#   Web:        http://localhost:8081        (admin@monitorjudicial.local / admin-dev-12345)
+#   API:        http://localhost:8080/swagger-ui.html
+#   Mailpit:    http://localhost:8025        RabbitMQ: http://localhost:15672 (guest/guest)
+#   Grafana:    http://localhost:3000        Prometheus: http://localhost:9090   Jaeger: http://localhost:16686
+name: monitor-judicial
+
+x-healthy: &healthy
+  interval: 5s
+  timeout: 3s
+  retries: 20
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: monitor_judicial
+      POSTGRES_USER: monitor
+      POSTGRES_PASSWORD: monitor
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck: { test: ["CMD-SHELL", "pg_isready -U monitor"], <<: *healthy }
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck: { test: ["CMD", "redis-cli", "ping"], <<: *healthy }
+
+  rabbitmq:
+    image: rabbitmq:4-management-alpine
+    ports: ["5672:5672", "15672:15672"]
+    healthcheck: { test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"], <<: *healthy }
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports: ["1025:1025", "8025:8025"]
+
+  djen-mock:
+    image: node:22-alpine
+    command: ["node", "/scripts/djen-mock.mjs", "8089"]
+    volumes: ["../scripts:/scripts:ro"]
+    profiles: ["mock"]
+
+  api:
+    build: { context: .., dockerfile: docker/api.Dockerfile }
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/monitor_judicial
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+      MAIL_HOST: mailpit
+      MAIL_PORT: 1025
+      JWT_SECRET: ${JWT_SECRET:-troque-este-segredo-local-com-32-bytes-ou-mais}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@monitorjudicial.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin-dev-12345}
+      CORS_ALLOWED_ORIGINS: http://localhost:8081
+      DJEN_BASE_URL: ${DJEN_BASE_URL:-https://comunicaapi.pje.jus.br}
+      WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+      WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    ports: ["8080:8080"]
+
+  web:
+    build: { context: .., dockerfile: docker/web.Dockerfile }
+    depends_on: [api]
+    ports: ["8081:80"]
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    volumes: ["../infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro"]
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana:12.1.1
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ../infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.72.0
+    environment: { COLLECTOR_OTLP_ENABLED: "true" }
+    ports: ["16686:16686", "4318:4318"]
+
+volumes:
+  pgdata:

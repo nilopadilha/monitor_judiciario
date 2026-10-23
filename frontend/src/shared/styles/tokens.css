@@ -1,0 +1,37 @@
+/*
+ * Design system Monitor Judicial — tokens (fonte: artefato "Monitor Judicial", tokens.json).
+ * Mapeados para as variáveis do ShadCN Vue, conforme a seção "Implementação" do README do design system.
+ */
+:root {
+  --surface: #f6f4ee;
+  --surface-raised: #ffffff;
+  --ink: #18222e;
+  --ink-muted: #555f6d;
+  --line: #dcd8cc;
+  --border-strong: #7b828c;
+  --brand: #1e4b5c;
+  --brand-tint: #dde7ea;
+  --novelty: #e3a33b;
+  --novelty-text: #8a5208;
+  --signal-ok: #2c6a8e;
+  --signal-error: #b42a1f;
+
+  /* ShadCN */
+  --background: var(--surface);
+  --foreground: var(--ink);
+  --card: var(--surface-raised);
+  --card-foreground: var(--ink);
+  --popover: var(--surface-raised);
+  --popover-foreground: var(--ink);
+  --muted: var(--surface);
+  --muted-foreground: var(--ink-muted);
+  --border: var(--line);
+  --input: var(--border-strong);
+  --primary: var(--brand);
+  --primary-foreground: var(--surface-raised);
+  --accent: var(--brand-tint);
+  --accent-foreground: var(--ink);
+  --destructive: var(--signal-error);
+  --ring: var(--brand);
+  --radius: 6px;
+}

@@ -1,0 +1,79 @@
+@import 'tailwindcss';
+@import './tokens.css';
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-ring: var(--ring);
+  --color-novelty: var(--novelty);
+  --color-novelty-text: var(--novelty-text);
+  --color-ok: var(--signal-ok);
+
+  --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  --font-sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+
+  --radius-sm: 2px;
+  --radius-md: 6px;
+  --radius-lg: 12px;
+}
+
+@layer base {
+  html {
+    color-scheme: light;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-size: 15px;
+    line-height: 22px;
+  }
+  *:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .text-title {
+    @apply font-serif font-semibold;
+    font-size: 24px;
+    line-height: 30px;
+  }
+  .text-display {
+    @apply font-serif font-semibold;
+    font-size: 40px;
+    line-height: 44px;
+    letter-spacing: -0.01em;
+  }
+  .text-heading {
+    @apply font-semibold;
+    font-size: 17px;
+    line-height: 24px;
+  }
+  .text-caption {
+    @apply text-muted-foreground;
+    font-size: 13px;
+    line-height: 18px;
+  }
+  .text-label {
+    @apply font-semibold uppercase;
+    font-size: 12px;
+    line-height: 16px;
+    letter-spacing: 0.04em;
+  }
+  .text-process-number {
+    @apply font-mono font-medium;
+    font-size: 14px;
+    line-height: 20px;
+  }
+}

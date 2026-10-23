@@ -1,0 +1,30 @@
+security:
+  jwt:
+    secret: integration-test-secret-0123456789abcdef
+  bcrypt-strength: 4
+  rate-limit:
+    tokens-per-minute: 10000
+    api-per-minute: 100000
+  bootstrap-admin:
+    email: admin@test.local
+    password: admin-test-12345
+
+monitoring:
+  scheduler:
+    enabled: false
+  max-concurrency: 4
+
+outbox:
+  relay-interval: PT0.2S
+
+spring:
+  rabbitmq:
+    listener:
+      simple:
+        retry:
+          initial-interval: 100ms
+
+management:
+  tracing:
+    sampling:
+      probability: 0.0

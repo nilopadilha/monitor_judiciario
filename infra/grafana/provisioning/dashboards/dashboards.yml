@@ -1,0 +1,7 @@
+apiVersion: 1
+providers:
+  - name: monitor-judicial
+    folder: Monitor Judicial
+    type: file
+    options:
+      path: /var/lib/grafana/dashboards

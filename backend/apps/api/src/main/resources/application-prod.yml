@@ -1,0 +1,5 @@
+# Produção: logs JSON (ECS) para agregação.
+logging:
+  structured:
+    format:
+      console: ecs

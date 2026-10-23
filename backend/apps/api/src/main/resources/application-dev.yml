@@ -1,0 +1,12 @@
+# Perfil de desenvolvimento local: logs legíveis e segredos de exemplo. Nunca usar em produção.
+security:
+  jwt:
+    secret: dev-only-secret-change-me-0123456789abcdef
+  bootstrap-admin:
+    email: admin@monitorjudicial.local
+    password: admin-dev-12345
+
+management:
+  tracing:
+    sampling:
+      probability: 0.0
