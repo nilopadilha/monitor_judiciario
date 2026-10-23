@@ -1,5 +1,5 @@
 # Backend
-backend/.gradle/
+backend/**/.gradle/
 backend/**/build/
 *.class
 # Frontend

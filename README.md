@@ -21,16 +21,19 @@ cp .env.example .env            # ajuste os segredos
 docker compose -f docker/docker-compose.yml up --build
 ```
 
-| Serviço | URL |
-|---|---|
-| Aplicação web | http://localhost:8081 — `admin@monitorjudicial.local` / `admin-dev-12345` (ou o que estiver no `.env`) |
-| API / Swagger | http://localhost:8080/swagger-ui.html |
-| E-mails enviados (Mailpit) | http://localhost:8025 |
-| Grafana · Prometheus · Jaeger | http://localhost:3000 · :9090 · :16686 |
+| Serviço | URL / Porta | Credenciais padrão (dev / Docker) |
+|---|---|---|
+| Aplicação web | http://localhost:8081 (Docker) · http://localhost:5173 (Vite) | **ADMIN:** `admin@monitorjudicial.local` / `admin-dev-12345`<br>**CUSTOMER (após seed):** `maria@cliente.example` / `cliente-dev-123` |
+| API / Swagger | http://localhost:8080/swagger-ui.html | Autenticação via Bearer Token JWT |
+| PostgreSQL 17 | `localhost:5432` (banco: `monitor_judicial`) | `monitor` / `monitor` |
+| RabbitMQ (Management) | http://localhost:15672 (AMQP: `5672`) | `guest` / `guest` |
+| Redis 7 | `localhost:6379` | *(sem senha)* |
+| E-mails enviados (Mailpit) | http://localhost:8025 (SMTP: `1025`) | *(aberto)* |
+| Grafana · Prometheus · Jaeger | http://localhost:3000 · :9090 · :16686 | Grafana: `admin` / `admin` (ou acesso anônimo Viewer) |
 
 Sem saída de rede para `comunicaapi.pje.jus.br`, use o simulador do DJEN: defina `DJEN_BASE_URL=http://djen-mock:8089` no `.env` e suba com `--profile mock`.
 
-### Desenvolvimento
+### Desenvolvimento (Linux / macOS)
 
 ```bash
 # infraestrutura
@@ -49,6 +52,31 @@ cd frontend && npm install && npm run dev        # http://localhost:5173
 scripts/seed-dev.sh
 ```
 
+### Desenvolvimento no Windows (PowerShell)
+
+```powershell
+# 1. Infraestrutura
+docker compose -f docker/docker-compose.yml up -d postgres redis rabbitmq mailpit
+
+# 2. Simulador do DJEN (em um terminal separado)
+node scripts/djen-mock.mjs 8089
+
+# 3. API (perfil dev apontando para o simulador local)
+cd backend
+$env:DJEN_BASE_URL="http://localhost:8089"
+.\gradlew.bat :apps:api:bootRun --args="--spring.profiles.active=dev"
+
+# 4. Frontend (em outro terminal — http://localhost:5173)
+cd frontend
+npm install
+npm run dev
+
+# 5. Dados de exemplo e disparo inicial de monitoramento (em outro terminal, na raiz do projeto)
+.\scripts\seed-dev.ps1
+```
+
+> **Nota sobre o primeiro acesso:** No primeiro boot, o Flyway e o `AdminBootstrap` criam apenas os 27 Tribunais de Justiça e o usuário `ADMIN`. Execute `.\scripts\seed-dev.ps1` (Windows) ou `scripts/seed-dev.sh` (Linux/macOS) para popular os 3 clientes, 6 processos, o usuário `CUSTOMER` e disparar a primeira execução de monitoramento.
+
 ## Testes
 
 ```bash
@@ -66,7 +94,7 @@ frontend/  src/{features,shared,layouts,router,stores}
 docs/      arquitetura, ADRs, OpenAPI
 docker/    Dockerfiles, nginx, docker-compose
 infra/     Prometheus, Grafana (dashboard provisionado)
-scripts/   simulador do DJEN, dados de exemplo
+scripts/   simulador do DJEN, dados de exemplo (seed-dev.sh / seed-dev.ps1)
 ```
 
 ## Onde este projeto diverge do prompt (e por quê)
