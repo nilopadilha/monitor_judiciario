@@ -146,6 +146,12 @@ class ClientAndProcessIT extends IntegrationTest {
                 .andExpect(jsonPath("$.received").value(1))
                 .andExpect(jsonPath("$.created").value(0));
         mvc.perform(auth(get("/api/v1/tribunals").param("active", "true"), admin)).andExpect(status().isOk());
+
+        DJEN.stubFor(com.github.tomakehurst.wiremock.client.WireMock.get("/api/v1/comunicacao/tribunal")
+                .willReturn(com.github.tomakehurst.wiremock.client.WireMock.aResponse().withStatus(503)));
+        mvc.perform(auth(post("/api/v1/tribunal-synchronizations"), admin))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.type").value("https://monitorjudicial.app/problems/djen-unavailable"));
     }
 
     private static String federalDigits() {

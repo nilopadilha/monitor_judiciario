@@ -4,6 +4,7 @@ import br.com.monitorjudicial.shared.observability.CorrelationId;
 import br.com.monitorjudicial.shared.domain.BusinessRuleViolationException;
 import br.com.monitorjudicial.shared.domain.ConflictException;
 import br.com.monitorjudicial.shared.domain.DomainException;
+import br.com.monitorjudicial.shared.domain.ExternalServiceUnavailableException;
 import br.com.monitorjudicial.shared.domain.ResourceNotFoundException;
 import br.com.monitorjudicial.shared.domain.UnauthorizedException;
 import jakarta.validation.ConstraintViolationException;
@@ -53,6 +54,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @ExceptionHandler(ConflictException.class)
     ProblemDetail conflict(ConflictException ex) {
         return problem(HttpStatus.CONFLICT, ex, "Conflito");
+    }
+
+    @ExceptionHandler(ExternalServiceUnavailableException.class)
+    ProblemDetail badGateway(ExternalServiceUnavailableException ex) {
+        return problem(HttpStatus.BAD_GATEWAY, ex, "Serviço externo indisponível");
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
