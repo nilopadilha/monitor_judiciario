@@ -57,12 +57,12 @@ public class TribunalService implements TribunalDirectory {
         return TribunalView.of(tribunal);
     }
 
-    /** Upsert dos tribunais estaduais (TJ*) informados pelo DJEN; tribunais novos entram ativos. */
+    /** Upsert dos tribunais suportados (TJ*, TRF*, TRT*) informados pelo DJEN; tribunais novos entram ativos. */
     @Transactional
     @CacheEvict(cacheNames = CACHE, allEntries = true)
     public SynchronizationResult synchronize() {
         List<DjenTribunal> received = djen.getTribunals().stream()
-                .filter(t -> t.code().startsWith("TJ"))
+                .filter(t -> isSupportedCourt(t.code()))
                 .toList();
         int created = 0;
         int updated = 0;
@@ -80,5 +80,9 @@ public class TribunalService implements TribunalDirectory {
         auditor.record("SYNCHRONIZE", "tribunal", "*",
                 Map.of("received", received.size(), "created", created, "updated", updated));
         return new SynchronizationResult(received.size(), created, updated);
+    }
+
+    private static boolean isSupportedCourt(String code) {
+        return code != null && (code.startsWith("TJ") || code.startsWith("TRF") || code.startsWith("TRT"));
     }
 }

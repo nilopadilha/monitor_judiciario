@@ -53,9 +53,16 @@ class ProcessNumberTest {
                 .isEqualTo(court);
     }
 
+    @ParameterizedTest
+    @CsvSource({"4,01,TRF1", "4,03,TRF3", "4,06,TRF6", "5,02,TRT2", "5,15,TRT15", "5,24,TRT24"})
+    void derivesFederalAndLaborCourtsFromNumber(String segment, String tr, String court) {
+        assertThat(ProcessNumber.parse(CnjNumbers.valid("0000042", "2025", segment, tr, "0001")).courtCode())
+                .isEqualTo(court);
+    }
+
     @Test
-    void federalJusticeIsOutOfScope() {
-        ProcessNumber federal = ProcessNumber.parse(CnjNumbers.valid("0000042", "2025", "4", "01", "3400"));
-        assertThatThrownBy(federal::courtCode).extracting("code").isEqualTo("unsupported-court");
+    void electoralJusticeIsOutOfScope() {
+        ProcessNumber electoral = ProcessNumber.parse(CnjNumbers.valid("0000042", "2025", "6", "01", "0001"));
+        assertThatThrownBy(electoral::courtCode).extracting("code").isEqualTo("unsupported-court");
     }
 }

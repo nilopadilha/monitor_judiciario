@@ -113,7 +113,7 @@ monitoring:
   cron: ${MONITORING_CRON:0 0 6 * * *}
   zone: America/Sao_Paulo
   max-concurrency: ${MONITORING_MAX_CONCURRENCY:8}
-  initial-lookback-days: 30
+  initial-lookback-days: ${MONITORING_INITIAL_LOOKBACK_DAYS:3650}
   overlap-days: 1
   scheduler:
     enabled: true

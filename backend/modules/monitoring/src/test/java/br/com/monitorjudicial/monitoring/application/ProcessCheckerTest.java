@@ -59,6 +59,9 @@ class ProcessCheckerTest {
         var process = Fixtures.process(Instant.parse("2026-10-23T01:30:00Z"), Instant.parse("2026-01-01T00:00:00Z"));
         CheckWindow window = CheckWindow.of(process, today, properties.zone(), 30, 1);
         assertThat(window.from()).isEqualTo(LocalDate.of(2026, 10, 21));
+
+        var fresh = Fixtures.process(null, Instant.parse("2026-10-20T15:00:00Z"));
+        assertThat(CheckWindow.of(fresh, today, properties.zone(), 0, 1).from()).isNull();
     }
 
     @Test
