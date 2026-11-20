@@ -38,6 +38,9 @@ public class ProcessEntity {
     @Column(nullable = false)
     private ProcessStatus status;
 
+    @Column(nullable = false)
+    private boolean confidential;
+
     @Column(name = "last_checked_at")
     private Instant lastCheckedAt;
 

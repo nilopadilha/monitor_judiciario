@@ -160,4 +160,25 @@ class NotificationServiceTest {
         assertThat(page.content().getFirst().processNumber()).isEqualTo("1001234-83.2026.8.26.0100");
         assertThat(page.content().getFirst().clientName()).isNull();
     }
+
+    @Test
+    void confidentialProcessRedactsContentInEmailAndWhatsapp() {
+        client(true, true, true, "+5511987654321");
+        ProcessEvolutionDetected secret = new ProcessEvolutionDetected(UUID.randomUUID(), processId, clientId,
+                "1001234-83.2026.8.26.0100", "TJSP", UUID.randomUUID(), LocalDate.of(2026, 10, 22), "SENTENCA",
+                "Sentença", "Dados sensíveis do menor de idade.", clock.instant(), true);
+
+        service.handle(secret);
+
+        var emailCaptor = ArgumentCaptor.forClass(OutgoingMessage.class);
+        verify(email).send(emailCaptor.capture());
+        assertThat(emailCaptor.getValue().subject()).contains("sigiloso");
+        assertThat(emailCaptor.getValue().body()).contains("segredo de justiça")
+                .doesNotContain("menor de idade");
+
+        var waCaptor = ArgumentCaptor.forClass(OutgoingMessage.class);
+        verify(whatsapp).send(waCaptor.capture());
+        assertThat(waCaptor.getValue().templateParameters()).contains("Sigiloso")
+                .noneMatch(p -> p.contains("menor de idade"));
+    }
 }

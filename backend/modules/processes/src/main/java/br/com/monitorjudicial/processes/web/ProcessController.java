@@ -61,16 +61,16 @@ public class ProcessController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ProcessView> create(@Valid @RequestBody RegisterProcessRequest request) {
-        ProcessView created = processes.register(
-                new RegisterProcessCommand(request.clientId(), request.number(), request.subject()));
+        ProcessView created = processes.register(new RegisterProcessCommand(request.clientId(), request.number(),
+                request.subject(), Boolean.TRUE.equals(request.confidential())));
         return ResponseEntity.created(URI.create("/api/v1/processes/" + created.id())).body(created);
     }
 
-    @Operation(summary = "Altera assunto e status (ACTIVE/PAUSED)")
+    @Operation(summary = "Altera assunto, status (ACTIVE/PAUSED) e sigilo")
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ProcessView update(@PathVariable UUID id, @Valid @RequestBody UpdateProcessRequest request) {
-        return processes.update(id, request.subject(), request.status());
+        return processes.update(id, request.subject(), request.status(), request.confidential());
     }
 
     @Operation(summary = "Arquiva processo (encerra o monitoramento, preserva histórico)")

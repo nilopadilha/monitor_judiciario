@@ -17,6 +17,9 @@ monitoring:
 outbox:
   relay-interval: PT0.2S
 
+retention:
+  enabled: false
+
 spring:
   rabbitmq:
     listener:

@@ -12,6 +12,7 @@ public record ProcessView(
         String courtCode,
         String subject,
         ProcessStatus status,
+        boolean confidential,
         MonitoringSituation situation,
         long unreadPublications,
         String lastError,

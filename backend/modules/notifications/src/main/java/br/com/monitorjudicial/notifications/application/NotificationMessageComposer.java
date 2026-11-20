@@ -11,11 +11,26 @@ public class NotificationMessageComposer {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
+    private static final String CONFIDENTIAL_NOTICE =
+            "Conteúdo protegido (segredo de justiça). Acesse o Monitor Judicial autenticado para visualizar.";
+
     public String subject(ProcessEvolutionDetected e) {
-        return "Nova publicação no processo " + e.processNumber();
+        return e.confidential()
+                ? "Nova movimentação em processo sigiloso " + e.processNumber()
+                : "Nova publicação no processo " + e.processNumber();
     }
 
     public String body(ProcessEvolutionDetected e, String clientName) {
+        if (e.confidential()) {
+            return """
+                    Olá, %s.
+
+                    Há uma nova movimentação em %s no processo %s (%s).
+
+                    %s
+                    """.formatted(clientName, DATE.format(e.publicationDate()), e.processNumber(), e.courtCode(),
+                    CONFIDENTIAL_NOTICE).strip();
+        }
         return """
                 Olá, %s.
 
@@ -30,6 +45,9 @@ public class NotificationMessageComposer {
 
     /** Parâmetros do template aprovado na Meta: {{1}} processo, {{2}} data, {{3}} tipo, {{4}} trecho. */
     public List<String> templateParameters(ProcessEvolutionDetected e) {
+        if (e.confidential()) {
+            return List.of(e.processNumber(), DATE.format(e.publicationDate()), "Sigiloso", CONFIDENTIAL_NOTICE);
+        }
         return List.of(e.processNumber(), DATE.format(e.publicationDate()), e.movementLabel(), e.excerpt());
     }
 

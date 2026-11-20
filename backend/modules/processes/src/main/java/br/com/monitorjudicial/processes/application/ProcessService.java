@@ -77,17 +77,25 @@ public class ProcessService implements ProcessDirectory {
             throw new ConflictException("process-already-registered",
                     "O processo " + number.formatted() + " já está cadastrado.");
         }
-        Process process = processes.save(Process.register(client.id(), number, command.subject(), clock.instant()));
-        auditor.record("CREATE", RESOURCE, process.id(), Map.of("number", number.formatted(), "court", courtCode));
+        Process process = processes.save(Process.register(client.id(), number, command.subject(),
+                command.confidential(), clock.instant()));
+        auditor.record("CREATE", RESOURCE, process.id(),
+                Map.of("number", number.formatted(), "court", courtCode, "confidential", process.confidential()));
         return toView(process, client.name(), ProcessMonitoringStatus.NONE);
     }
 
     @Transactional
     public ProcessView update(UUID id, String subject, ProcessStatus status) {
+        return update(id, subject, status, null);
+    }
+
+    @Transactional
+    public ProcessView update(UUID id, String subject, ProcessStatus status, Boolean confidential) {
         Process process = load(id);
-        process.update(subject, status, clock.instant());
+        boolean nextConfidential = confidential == null ? process.confidential() : confidential;
+        process.update(subject, status, nextConfidential, clock.instant());
         processes.save(process);
-        auditor.record("UPDATE", RESOURCE, id, Map.of("status", status.name()));
+        auditor.record("UPDATE", RESOURCE, id, Map.of("status", status.name(), "confidential", nextConfidential));
         return enrich(List.of(process)).getFirst();
     }
 
@@ -134,7 +142,7 @@ public class ProcessService implements ProcessDirectory {
     public List<MonitoredProcess> findMonitorable() {
         return processes.findByStatusOrderByLastCheckedAt(ProcessStatus.ACTIVE).stream()
                 .map(p -> new MonitoredProcess(p.id(), p.clientId(), p.number().digits(), p.number().formatted(),
-                        p.courtCode(), p.lastCheckedAt().orElse(null), p.createdAt()))
+                        p.courtCode(), p.confidential(), p.lastCheckedAt().orElse(null), p.createdAt()))
                 .toList();
     }
 
@@ -186,7 +194,7 @@ public class ProcessService implements ProcessDirectory {
 
     private static ProcessView toView(Process p, String clientName, ProcessMonitoringStatus monitoring) {
         return new ProcessView(p.id(), p.clientId(), clientName, p.number().formatted(), p.courtCode(),
-                p.subject().orElse(null), p.status(), situationOf(p.status(), monitoring),
+                p.subject().orElse(null), p.status(), p.confidential(), situationOf(p.status(), monitoring),
                 monitoring.unreadPublications(), monitoring.lastError(), p.lastCheckedAt().orElse(null),
                 p.createdAt());
     }

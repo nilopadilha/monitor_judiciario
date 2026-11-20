@@ -1,5 +1,6 @@
 package br.com.monitorjudicial.clients.web;
 
+import br.com.monitorjudicial.clients.domain.LegalBasis;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -10,5 +11,7 @@ public record ClientRequest(
         @NotBlank @Email String email,
         @Size(max = 20) String phone,
         boolean notifyEmail,
-        boolean notifyWhatsapp) {
+        boolean notifyWhatsapp,
+        LegalBasis legalBasis,
+        @Size(max = 32) String privacyNoticeVersion) {
 }

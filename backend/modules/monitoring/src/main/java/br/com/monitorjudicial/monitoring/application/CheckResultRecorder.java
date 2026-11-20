@@ -107,7 +107,7 @@ class CheckResultRecorder {
         UUID eventId = Ids.newId();
         var event = new ProcessEvolutionDetected(eventId, process.id(), process.clientId(), process.formattedNumber(),
                 process.courtCode(), publication.id(), publication.publicationDate(), type.name(), type.label(),
-                publication.excerpt(EXCERPT_LENGTH), now);
+                publication.excerpt(EXCERPT_LENGTH), now, process.confidential());
         try {
             return new OutboxEvent(eventId, "process", process.id(), MonitoringEvents.PROCESS_EVOLUTION_DETECTED,
                     json.writeValueAsString(event), CorrelationId.current().orElse(null), now);

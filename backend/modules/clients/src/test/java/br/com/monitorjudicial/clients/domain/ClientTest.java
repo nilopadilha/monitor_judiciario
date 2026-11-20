@@ -55,4 +55,30 @@ class ClientTest {
         client.activate(later);
         assertThat(client.isActive()).isTrue();
     }
+
+    @Test
+    void anonymizationScrubsPersonalDataAndPreventsFurtherEdits() {
+        Client client = Client.register("Maria", CNPJ, EMAIL, new Phone("11987654321"), true, true,
+                LegalBasis.CONSENT, "2.0", NOW);
+        assertThat(client.legalBasis()).isEqualTo(LegalBasis.CONSENT);
+        assertThat(client.privacyNoticeVersion()).isEqualTo("2.0");
+
+        client.updateNotificationPreferences(true, false, NOW.plusSeconds(30));
+        assertThat(client.notifyWhatsapp()).isFalse();
+
+        Instant anonAt = NOW.plusSeconds(60);
+        client.anonymize(anonAt);
+        assertThat(client.isAnonymized()).isTrue();
+        assertThat(client.name()).isEqualTo("Titular anonimizado");
+        assertThat(client.formattedDocument()).isEqualTo("[anonimizado]");
+        assertThat(client.maskedDocument()).isEqualTo("[anonimizado]");
+        assertThat(client.phone()).isEmpty();
+        assertThat(client.notifyEmail()).isFalse();
+        assertThat(client.anonymizedAt()).isEqualTo(anonAt);
+
+        assertThatThrownBy(() -> client.anonymize(anonAt)).extracting("code").isEqualTo("client-already-anonymized");
+        assertThatThrownBy(() -> client.update("X", EMAIL, null, true, false, anonAt))
+                .extracting("code").isEqualTo("client-anonymized");
+        assertThatThrownBy(() -> client.activate(anonAt)).extracting("code").isEqualTo("client-anonymized");
+    }
 }

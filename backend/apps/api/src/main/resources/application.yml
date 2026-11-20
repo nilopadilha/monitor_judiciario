@@ -117,6 +117,14 @@ outbox:
   relay:
     enabled: true
 
+retention:
+  enabled: ${RETENTION_ENABLED:true}
+  cron: ${RETENTION_CRON:0 30 3 * * *}
+  refresh-tokens-days: ${RETENTION_REFRESH_TOKENS_DAYS:30}
+  monitoring-jobs-days: ${RETENTION_MONITORING_JOBS_DAYS:90}
+  notifications-days: ${RETENTION_NOTIFICATIONS_DAYS:365}
+  audit-logs-days: ${RETENTION_AUDIT_LOGS_DAYS:1825}
+
 notifications:
   email:
     from: ${MAIL_FROM:Monitor Judicial <nao-responda@monitorjudicial.app>}

@@ -16,34 +16,51 @@ public final class Process {
     private final String courtCode;
     private String subject;
     private ProcessStatus status;
+    private boolean confidential;
     private Instant lastCheckedAt;
     private final Instant createdAt;
     private Instant updatedAt;
 
     public Process(UUID id, UUID clientId, ProcessNumber number, String subject, ProcessStatus status,
             Instant lastCheckedAt, Instant createdAt, Instant updatedAt) {
+        this(id, clientId, number, subject, status, false, lastCheckedAt, createdAt, updatedAt);
+    }
+
+    public Process(UUID id, UUID clientId, ProcessNumber number, String subject, ProcessStatus status,
+            boolean confidential, Instant lastCheckedAt, Instant createdAt, Instant updatedAt) {
         this.id = Guard.requireNonNull(id, "invalid-process", "Id é obrigatório.");
         this.clientId = Guard.requireNonNull(clientId, "invalid-process-client", "Cliente é obrigatório.");
         this.number = Guard.requireNonNull(number, "invalid-process-number", "Número é obrigatório.");
         this.courtCode = number.courtCode();
         this.status = Guard.requireNonNull(status, "invalid-process-status", "Status é obrigatório.");
         this.subject = normalizeSubject(subject);
+        this.confidential = confidential;
         this.lastCheckedAt = lastCheckedAt;
         this.createdAt = createdAt;
         this.updatedAt = updatedAt;
     }
 
     public static Process register(UUID clientId, ProcessNumber number, String subject, Instant now) {
-        return new Process(Ids.newId(), clientId, number, subject, ProcessStatus.ACTIVE, null, now, now);
+        return register(clientId, number, subject, false, now);
+    }
+
+    public static Process register(UUID clientId, ProcessNumber number, String subject, boolean confidential,
+            Instant now) {
+        return new Process(Ids.newId(), clientId, number, subject, ProcessStatus.ACTIVE, confidential, null, now, now);
     }
 
     public void update(String subject, ProcessStatus status, Instant now) {
+        update(subject, status, this.confidential, now);
+    }
+
+    public void update(String subject, ProcessStatus status, boolean confidential, Instant now) {
         if (this.status == ProcessStatus.ARCHIVED && status != ProcessStatus.ARCHIVED) {
             throw new BusinessRuleViolationException("process-archived",
                     "Processo arquivado não pode ser reativado; cadastre-o novamente.");
         }
         this.subject = normalizeSubject(subject);
         this.status = Guard.requireNonNull(status, "invalid-process-status", "Status é obrigatório.");
+        this.confidential = confidential;
         this.updatedAt = now;
     }
 
@@ -93,6 +110,10 @@ public final class Process {
 
     public ProcessStatus status() {
         return status;
+    }
+
+    public boolean confidential() {
+        return confidential;
     }
 
     public Optional<Instant> lastCheckedAt() {

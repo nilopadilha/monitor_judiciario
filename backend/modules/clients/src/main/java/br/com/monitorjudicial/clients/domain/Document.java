@@ -14,7 +14,7 @@ public record Document(String value) {
             default -> false;
         };
         if (!valid) {
-            throw new BusinessRuleViolationException("invalid-document", "CPF/CNPJ inválido: " + value);
+            throw new BusinessRuleViolationException("invalid-document", "CPF/CNPJ inválido.");
         }
         value = digits;
     }

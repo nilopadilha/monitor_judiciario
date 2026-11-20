@@ -11,7 +11,7 @@ public record Email(String value) {
     public Email {
         String normalized = Guard.requireText(value, "invalid-email", "E-mail é obrigatório.").toLowerCase(Locale.ROOT);
         if (normalized.length() > 254 || !FORMAT.matcher(normalized).matches()) {
-            throw new BusinessRuleViolationException("invalid-email", "E-mail inválido: " + value);
+            throw new BusinessRuleViolationException("invalid-email", "E-mail inválido.");
         }
         value = normalized;
     }

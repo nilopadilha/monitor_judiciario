@@ -3,6 +3,7 @@ package br.com.monitorjudicial.authentication.infrastructure.security;
 import br.com.monitorjudicial.authentication.application.CreateUserCommand;
 import br.com.monitorjudicial.authentication.application.UserService;
 import br.com.monitorjudicial.authentication.domain.port.UserRepository;
+import br.com.monitorjudicial.shared.security.PiiMasker;
 import br.com.monitorjudicial.shared.security.Role;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,6 @@ class AdminBootstrap implements ApplicationRunner {
             return;
         }
         userService.create(new CreateUserCommand("Administrador", email, password, Role.ADMIN, null));
-        log.info("Usuário ADMIN inicial criado para {}", email);
+        log.info("Usuário ADMIN inicial criado para {}", PiiMasker.maskEmail(email));
     }
 }

@@ -32,6 +32,7 @@ class ProcessPersistenceAdapter implements ProcessRepository {
         e.setCourtCode(p.courtCode());
         e.setSubject(p.subject().orElse(null));
         e.setStatus(p.status());
+        e.setConfidential(p.confidential());
         e.setLastCheckedAt(p.lastCheckedAt().orElse(null));
         e.setCreatedAt(p.createdAt());
         e.setUpdatedAt(p.updatedAt());
@@ -94,6 +95,6 @@ class ProcessPersistenceAdapter implements ProcessRepository {
 
     private static Process toDomain(ProcessEntity e) {
         return new Process(e.getId(), e.getClientId(), new ProcessNumber(e.getProcessNumber()), e.getSubject(),
-                e.getStatus(), e.getLastCheckedAt(), e.getCreatedAt(), e.getUpdatedAt());
+                e.getStatus(), e.isConfidential(), e.getLastCheckedAt(), e.getCreatedAt(), e.getUpdatedAt());
     }
 }
