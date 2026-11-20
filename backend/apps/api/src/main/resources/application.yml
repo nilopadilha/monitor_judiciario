@@ -121,6 +121,12 @@ monitoring:
 discovery:
   auto-on-register: ${DISCOVERY_AUTO_ON_REGISTER:true}
 
+deadlines:
+  alert-advance-days: ${DEADLINES_ALERT_ADVANCE_DAYS:5}
+  alert-cron: ${DEADLINES_ALERT_CRON:0 30 7 * * *}
+  alerts:
+    enabled: ${DEADLINES_ALERTS_ENABLED:true}
+
 outbox:
   relay-interval: PT2S
   relay:

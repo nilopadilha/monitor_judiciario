@@ -2,11 +2,14 @@ package br.com.monitorjudicial.notifications.application;
 
 import br.com.monitorjudicial.clients.api.ClientDirectory;
 import br.com.monitorjudicial.clients.api.ClientSummary;
+import br.com.monitorjudicial.lawyers.api.LawyerDirectory;
+import br.com.monitorjudicial.lawyers.api.LawyerSummary;
 import br.com.monitorjudicial.monitoring.api.ProcessEvolutionDetected;
 import br.com.monitorjudicial.notifications.domain.Channel;
 import br.com.monitorjudicial.notifications.domain.Notification;
 import br.com.monitorjudicial.notifications.domain.NotificationDeliveryException;
 import br.com.monitorjudicial.notifications.domain.NotificationStatus;
+import br.com.monitorjudicial.notifications.domain.OutgoingMessage;
 import br.com.monitorjudicial.notifications.domain.port.NotificationRepository;
 import br.com.monitorjudicial.notifications.domain.port.NotificationRepository.NotificationFilter;
 import br.com.monitorjudicial.notifications.domain.port.NotificationSender;
@@ -39,6 +42,7 @@ public class NotificationService {
     private final NotificationRepository notifications;
     private final Map<Channel, NotificationSender> senders = new EnumMap<>(Channel.class);
     private final ClientDirectory clients;
+    private final LawyerDirectory lawyers;
     private final ProcessDirectory processes;
     private final NotificationMessageComposer composer;
     private final Auditor auditor;
@@ -46,11 +50,12 @@ public class NotificationService {
     private final Clock clock;
 
     public NotificationService(NotificationRepository notifications, List<NotificationSender> senders,
-            ClientDirectory clients, ProcessDirectory processes, NotificationMessageComposer composer,
-            Auditor auditor, MeterRegistry meters, Clock clock) {
+            ClientDirectory clients, LawyerDirectory lawyers, ProcessDirectory processes,
+            NotificationMessageComposer composer, Auditor auditor, MeterRegistry meters, Clock clock) {
         this.notifications = notifications;
         senders.forEach(s -> this.senders.put(s.channel(), s));
         this.clients = clients;
+        this.lawyers = lawyers;
         this.processes = processes;
         this.composer = composer;
         this.auditor = auditor;
@@ -58,27 +63,62 @@ public class NotificationService {
         this.clock = clock;
     }
 
-    /** Uma notificação por canal habilitado; eventos reentregues pela fila não geram duplicatas. */
+    /** Uma notificação por canal habilitado para o cliente e alerta direto ao advogado responsável. */
     @Transactional
     public List<NotificationView> handle(ProcessEvolutionDetected event) {
         ClientSummary client = clients.findById(event.clientId()).orElse(null);
-        if (client == null || !client.active()) {
-            log.info("Evento {} ignorado: cliente {} inexistente ou inativo", event.eventId(), event.clientId());
-            return List.of();
-        }
         List<NotificationView> sent = new ArrayList<>();
-        for (Channel channel : enabledChannels(client)) {
-            if (notifications.existsByEventAndChannel(event.eventId(), channel)) {
-                continue;
+        if (client != null && client.active()) {
+            for (Channel channel : enabledChannels(client)) {
+                if (notifications.existsByEventAndChannel(event.eventId(), channel)) {
+                    continue;
+                }
+                Notification notification = Notification.pending(event.eventId(), event.processId(), client.id(),
+                        channel, recipient(client, channel), composer.subject(event),
+                        composer.body(event, client.name()), clock.instant());
+                deliver(notification, composer.templateParameters(event));
+                notifications.save(notification);
+                sent.add(NotificationView.of(notification, event.processNumber(), client.name()));
             }
-            Notification notification = Notification.pending(event.eventId(), event.processId(), client.id(), channel,
-                    recipient(client, channel), composer.subject(event), composer.body(event, client.name()),
-                    clock.instant());
-            deliver(notification, composer.templateParameters(event));
-            notifications.save(notification);
-            sent.add(NotificationView.of(notification, event.processNumber(), client.name()));
+        } else {
+            log.info("Notificação ao cliente ignorada no evento {}: cliente {} inexistente ou inativo",
+                    event.eventId(), event.clientId());
         }
+        notifyResponsibleLawyer(event, client == null ? "Cliente" : client.name());
         return sent;
+    }
+
+    private void notifyResponsibleLawyer(ProcessEvolutionDetected event, String clientName) {
+        if (event.lawyerId() == null) {
+            return;
+        }
+        LawyerSummary lawyer = lawyers.findById(event.lawyerId()).filter(LawyerSummary::active).orElse(null);
+        if (lawyer == null) {
+            return;
+        }
+        String subject = "[Advogado] " + composer.subject(event) + " — " + clientName;
+        String body = composer.body(event, lawyer.name() + " (Cliente: " + clientName + ")");
+        if (lawyer.notifyEmail() && lawyer.email() != null && !lawyer.email().isBlank()) {
+            sendToLawyer(Channel.EMAIL, lawyer.email(), subject, body, composer.templateParameters(event));
+        }
+        if (lawyer.notifyWhatsapp() && lawyer.phone() != null && !lawyer.phone().isBlank()) {
+            sendToLawyer(Channel.WHATSAPP, lawyer.phone(), subject, body, composer.templateParameters(event));
+        }
+    }
+
+    private void sendToLawyer(Channel channel, String recipient, String subject, String body,
+            List<String> templateParams) {
+        NotificationSender sender = senders.get(channel);
+        if (sender == null) {
+            return;
+        }
+        try {
+            sender.send(new OutgoingMessage(channel, recipient, subject, body, templateParams));
+            meters.counter("notifications.lawyer.sent", "channel", channel.name(), "outcome", "success").increment();
+        } catch (NotificationDeliveryException e) {
+            meters.counter("notifications.lawyer.sent", "channel", channel.name(), "outcome", "failed").increment();
+            log.warn("Falha ao alertar advogado via {}: {}", channel, e.getMessage());
+        }
     }
 
     @Transactional

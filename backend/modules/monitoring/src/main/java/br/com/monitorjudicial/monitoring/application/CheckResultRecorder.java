@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,11 +52,12 @@ class CheckResultRecorder {
     private final PublicationComparisonService comparison;
     private final MovementClassifier classifier;
     private final ObjectMapper json;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
     CheckResultRecorder(PublicationRepository publications, MovementRepository movements, MonitoringJobRepository jobs,
             OutboxRepository outbox, ProcessDirectory processes, PublicationComparisonService comparison,
-            MovementClassifier classifier, ObjectMapper json, Clock clock) {
+            MovementClassifier classifier, ObjectMapper json, ApplicationEventPublisher events, Clock clock) {
         this.publications = publications;
         this.movements = movements;
         this.jobs = jobs;
@@ -64,6 +66,7 @@ class CheckResultRecorder {
         this.comparison = comparison;
         this.classifier = classifier;
         this.json = json;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -81,7 +84,9 @@ class CheckResultRecorder {
                     MovementType type = classifier.classify(candidate.documentType(), candidate.communicationType(),
                             candidate.content());
                     movements.save(Movement.fromPublication(publication, type, now));
-                    outbox.append(evolutionEvent(process, publication, type, now));
+                    ProcessEvolutionDetected detected = evolutionPayload(process, publication, type, now);
+                    outbox.append(toOutbox(detected, now));
+                    events.publishEvent(detected);
                     history.accept(publication);
                     created++;
                 }
@@ -102,15 +107,19 @@ class CheckResultRecorder {
         jobs.save(MonitoringJob.failure(executionId, process.id(), date, elapsedMs, error, clock.instant()));
     }
 
-    private OutboxEvent evolutionEvent(MonitoredProcess process, Publication publication, MovementType type,
-            Instant now) {
+    private ProcessEvolutionDetected evolutionPayload(MonitoredProcess process, Publication publication,
+            MovementType type, Instant now) {
         UUID eventId = Ids.newId();
-        var event = new ProcessEvolutionDetected(eventId, process.id(), process.clientId(), process.formattedNumber(),
-                process.courtCode(), publication.id(), publication.publicationDate(), type.name(), type.label(),
-                publication.excerpt(EXCERPT_LENGTH), now, process.confidential());
+        return new ProcessEvolutionDetected(eventId, process.id(), process.clientId(), process.lawyerId(),
+                process.formattedNumber(), process.courtCode(), publication.id(), publication.publicationDate(),
+                type.name(), type.label(), publication.excerpt(EXCERPT_LENGTH), now, process.confidential());
+    }
+
+    private OutboxEvent toOutbox(ProcessEvolutionDetected event, Instant now) {
         try {
-            return new OutboxEvent(eventId, "process", process.id(), MonitoringEvents.PROCESS_EVOLUTION_DETECTED,
-                    json.writeValueAsString(event), CorrelationId.current().orElse(null), now);
+            return new OutboxEvent(event.eventId(), "process", event.processId(),
+                    MonitoringEvents.PROCESS_EVOLUTION_DETECTED, json.writeValueAsString(event),
+                    CorrelationId.current().orElse(null), now);
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Falha ao serializar evento", e);
         }

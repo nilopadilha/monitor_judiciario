@@ -17,6 +17,10 @@ monitoring:
 discovery:
   auto-on-register: false
 
+deadlines:
+  alerts:
+    enabled: false
+
 outbox:
   relay-interval: PT0.2S
 

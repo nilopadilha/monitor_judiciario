@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ApplicationEventPublisher;
 
 class CheckResultRecorderTest {
 
@@ -43,9 +44,10 @@ class CheckResultRecorderTest {
     private final OutboxRepository outbox = mock(OutboxRepository.class);
     private final ProcessDirectory processes = mock(ProcessDirectory.class);
     private final ObjectMapper json = new ObjectMapper().registerModule(new JavaTimeModule());
+    private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-23T09:00:00Z"), ZoneOffset.UTC);
     private final CheckResultRecorder recorder = new CheckResultRecorder(publications, movements, jobs, outbox,
-            processes, new PublicationComparisonService(), new MovementClassifier(), json, clock);
+            processes, new PublicationComparisonService(), new MovementClassifier(), json, events, clock);
 
     private static CandidatePublication candidate(String hash, String type, String text) {
         return new CandidatePublication(hash, 1L, LocalDate.of(2026, 10, 22), "Intimação", type, "Vara", text, null,

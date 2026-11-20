@@ -5,8 +5,12 @@ import type {
   Client,
   ClientDataExport,
   ClientInput,
+  CreateDeadlineInput,
   CreateUserInput,
   DashboardSummary,
+  Deadline,
+  DeadlineStatus,
+  DeadlineSummary,
   DiscoveryResult,
   Lawyer,
   LawyerInput,
@@ -125,4 +129,14 @@ export const tribunalsApi = {
   setActive: (code: string, active: boolean) =>
     http.patch<Tribunal>(`/tribunals/${code}`, { active }).then((r) => r.data),
   synchronize: () => http.post<SynchronizationResult>('/tribunal-synchronizations').then((r) => r.data),
+}
+
+export const deadlinesApi = {
+  list: (params: { lawyerId?: string; processId?: string; status?: DeadlineStatus; page?: number; size?: number } = {}) =>
+    http.get<Page<Deadline>>('/deadlines', { params: clean(params) }).then((r) => r.data),
+  summary: () => http.get<DeadlineSummary>('/deadlines/summary').then((r) => r.data),
+  create: (input: CreateDeadlineInput) => http.post<Deadline>('/deadlines', input).then((r) => r.data),
+  updateStatus: (id: string, status: DeadlineStatus) =>
+    http.patch<Deadline>(`/deadlines/${id}`, { status }).then((r) => r.data),
+  triggerAlerts: () => http.post<{ alertsSent: number }>('/deadlines/alerts').then((r) => r.data),
 }

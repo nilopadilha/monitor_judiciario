@@ -28,6 +28,7 @@ export const routes: RouteRecordRaw[] = [
       { path: 'processos', name: 'processes', component: () => import('@/features/processes/ProcessesView.vue'), meta: { title: 'Processos' } },
       { path: 'processos/:id', name: 'process', component: () => import('@/features/processes/ProcessDetailView.vue'), meta: { title: 'Processo' } },
       { path: 'publicacoes', name: 'publications', component: () => import('@/features/publications/PublicationsView.vue'), meta: { title: 'Publicações' } },
+      { path: 'prazos', name: 'deadlines', component: () => import('@/features/deadlines/DeadlinesView.vue'), meta: { title: 'Prazos', roles: staff } },
       { path: 'clientes', name: 'clients', component: () => import('@/features/clients/ClientsView.vue'), meta: { title: 'Clientes', roles: staff } },
       { path: 'advogados', name: 'lawyers', component: () => import('@/features/lawyers/LawyersView.vue'), meta: { title: 'Advogados', roles: staff } },
       { path: 'notificacoes', name: 'notifications', component: () => import('@/features/notifications/NotificationsView.vue'), meta: { title: 'Notificações' } },

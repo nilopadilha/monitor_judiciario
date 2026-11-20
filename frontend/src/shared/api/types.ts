@@ -258,6 +258,51 @@ export interface DiscoveryResult {
   unmatchedProcessNumbers: string[]
 }
 
+export type DeadlineStatus = 'OPEN' | 'COMPLETED' | 'CANCELED'
+export type DeadlineUrgency = 'OVERDUE' | 'TODAY' | 'SOON' | 'UPCOMING' | 'NORMAL' | 'CLOSED'
+
+export interface Deadline {
+  id: string
+  processId: string
+  processNumber: string
+  courtCode: string
+  clientName: string
+  publicationId?: string
+  lawyerId?: string
+  lawyerName?: string
+  title: string
+  description?: string
+  startDate: string
+  dueDate: string
+  daysCount?: number
+  businessDays: boolean
+  status: DeadlineStatus
+  urgency: DeadlineUrgency
+  daysRemaining: number
+  autoDetected: boolean
+  completedAt?: string
+  createdAt: string
+}
+
+export interface DeadlineSummary {
+  overdue: number
+  dueToday: number
+  dueIn3Days: number
+  dueIn7Days: number
+  openTotal: number
+}
+
+export interface CreateDeadlineInput {
+  processId: string
+  lawyerId?: string
+  title: string
+  description?: string
+  startDate?: string
+  dueDate?: string
+  daysCount?: number
+  businessDays?: boolean
+}
+
 /** RFC 9457 Problem Details */
 export interface Problem {
   type?: string

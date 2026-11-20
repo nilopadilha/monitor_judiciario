@@ -75,6 +75,12 @@ class MonitoringFlowIT extends IntegrationTest {
         JsonNode movements = read(mvc.perform(auth(get("/api/v1/processes/" + processId + "/movements"), admin)));
         assertThat(movements.get("content").findValuesAsText("type")).containsExactly("SENTENCA", "DESPACHO");
 
+        // prazo recursal extraído automaticamente da Sentença detectada no DJEN
+        mvc.perform(auth(get("/api/v1/deadlines").param("processId", processId), admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.content[0].autoDetected").value(true));
+
         mvc.perform(auth(get("/api/v1/processes/" + processId), admin))
                 .andExpect(jsonPath("$.situation").value("NEW_PUBLICATION"))
                 .andExpect(jsonPath("$.unreadPublications").value(2));
