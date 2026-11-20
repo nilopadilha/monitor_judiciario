@@ -58,6 +58,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin-dev-12345}
       CORS_ALLOWED_ORIGINS: http://localhost:8081
       DJEN_BASE_URL: ${DJEN_BASE_URL:-https://comunicaapi.pje.jus.br}
+      DATAJUD_ENABLED: ${DATAJUD_ENABLED:-false}
+      DATAJUD_API_KEY: ${DATAJUD_API_KEY:-}
       WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
       WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
       OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318/v1/traces

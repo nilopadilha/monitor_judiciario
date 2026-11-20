@@ -46,8 +46,13 @@ class ProcessChecker {
                     .filter(c -> c.processNumber() == null || c.processNumber().equals(process.number()))
                     .map(ProcessChecker::toCandidate)
                     .forEach(candidates::add);
-            candidates.addAll(courtSource.movementsOf(process.number(), process.courtCode(), window.from(),
-                    window.to()));
+            try {
+                candidates.addAll(courtSource.movementsOf(process.number(), process.courtCode(), window.from(),
+                        window.to()));
+            } catch (RuntimeException e) {
+                log.warn("Fonte complementar indisponível para o processo {}: {}", process.formattedNumber(),
+                        e.getMessage());
+            }
             int created = recorder.recordSuccess(executionId, process, candidates, today, elapsedMs(start));
             return CheckOutcome.success(created);
         } catch (RuntimeException e) {

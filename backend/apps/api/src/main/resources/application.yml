@@ -103,6 +103,12 @@ djen:
     tribunals: /api/v1/comunicacao/tribunal
     journal: /api/v1/caderno/{sigla}/{data}/{meio}
 
+datajud:
+  enabled: ${DATAJUD_ENABLED:false}
+  base-url: ${DATAJUD_BASE_URL:https://api-publica.datajud.cnj.jus.br}
+  api-key: ${DATAJUD_API_KEY:}
+  max-hits: ${DATAJUD_MAX_HITS:20}
+
 monitoring:
   cron: ${MONITORING_CRON:0 0 6 * * *}
   zone: America/Sao_Paulo

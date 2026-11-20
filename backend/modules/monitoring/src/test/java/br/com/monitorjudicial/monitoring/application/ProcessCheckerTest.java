@@ -71,6 +71,16 @@ class ProcessCheckerTest {
         verify(recorder).recordFailure(eq(execution), eq(process), eq(today), anyLong(), eq("DJEN fora"));
     }
 
+    @Test
+    void complementarySourceFailureDoesNotFailDjenResults() {
+        var process = Fixtures.process(null, Instant.parse("2026-10-20T15:00:00Z"));
+        when(djen.searchCommunications(any())).thenReturn(List.of(communication("h1", process.number())));
+        when(court.movementsOf(any(), any(), any(), any())).thenThrow(new RuntimeException("DataJud timeout"));
+        when(recorder.recordSuccess(any(), eq(process), any(), eq(today), anyLong())).thenReturn(1);
+
+        assertThat(checker.check(UUID.randomUUID(), process, today)).isEqualTo(CheckOutcome.success(1));
+    }
+
     private static DjenCommunication communication(String hash, String number) {
         return new DjenCommunication(1, hash, "TJSP", LocalDate.of(2026, 10, 22), "Intimação", "Despacho", "Vara",
                 "Classe", "Texto " + hash, number, null);

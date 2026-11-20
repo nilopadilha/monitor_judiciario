@@ -170,6 +170,24 @@ class DjenClientAdapterTest {
         assertThat(DjenFeignConfiguration.retryAfter(List.of())).isNull();
     }
 
+    @Test
+    void supportsOabSearchAndDetectsGeoBlock403() {
+        djen.stubFor(get(urlPathEqualTo("/api/v1/comunicacao"))
+                .withQueryParam("numeroOab", equalTo("123456"))
+                .withQueryParam("ufOab", equalTo("SP"))
+                .willReturn(okJson(page(1, item(42, "h-oab")))));
+
+        List<DjenCommunication> oabResult = client.searchCommunications(
+                DjenSearch.byOab("123456", "SP", LocalDate.of(2026, 10, 1), LocalDate.of(2026, 10, 23)));
+        assertThat(oabResult).hasSize(1);
+
+        djen.resetAll();
+        djen.stubFor(get(urlPathEqualTo("/api/v1/comunicacao")).willReturn(aResponse().withStatus(403)));
+        assertThatThrownBy(() -> client.searchCommunications(new DjenSearch("1", null, null, null)))
+                .isInstanceOf(DjenUnavailableException.class)
+                .hasMessageContaining("HTTP 403");
+    }
+
     static String page(int count, String... items) {
         return "{\"status\":\"success\",\"message\":\"ok\",\"count\":" + count + ",\"items\":[" + String.join(",", items)
                 + "]}";

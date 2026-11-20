@@ -45,8 +45,8 @@ class DjenClientAdapter implements DjenClient {
         for (int page = 1; page <= properties.maxPages(); page++) {
             int current = page;
             DjenDtos.CommunicationPage response = call("search", () -> feign.searchCommunications(
-                    search.processNumber(), search.courtCode(), iso(search.from()), iso(search.to()), current,
-                    properties.pageSize()));
+                    search.processNumber(), search.courtCode(), iso(search.from()), iso(search.to()),
+                    search.oabNumber(), search.oabUf(), search.lawyerName(), current, properties.pageSize()));
             if (response == null) {
                 return result;
             }
@@ -110,6 +110,11 @@ class DjenClientAdapter implements DjenClient {
             boolean noResponse = e.status() < 0;
             meters.counter("djen.requests", "operation", operation, "outcome",
                     noResponse ? "unreachable" : String.valueOf(e.status())).increment();
+            if (e.status() == 403) {
+                meters.counter("djen.geo_blocked", "operation", operation).increment();
+                log.warn("DJEN retornou HTTP 403 em '{}': verifique se o servidor de saída possui IP brasileiro.",
+                        operation);
+            }
             String reason = noResponse
                     ? "DJEN inacessível (" + rootMessage(e) + ")"
                     : "DJEN respondeu HTTP " + e.status();
