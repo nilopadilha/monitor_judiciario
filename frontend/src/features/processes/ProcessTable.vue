@@ -14,6 +14,7 @@ const emit = defineEmits<{ select: [process: Process] }>()
         <tr class="text-left text-label text-muted-foreground">
           <th scope="col" class="border-b border-border p-2">Número CNJ</th>
           <th scope="col" class="border-b border-border p-2">Cliente</th>
+          <th scope="col" class="border-b border-border p-2">Advogado</th>
           <th scope="col" class="border-b border-border p-2">Tribunal</th>
           <th scope="col" class="border-b border-border p-2">Status</th>
           <th scope="col" class="border-b border-border p-2">Verificado</th>
@@ -32,6 +33,7 @@ const emit = defineEmits<{ select: [process: Process] }>()
             </button>
           </td>
           <td class="border-b border-border p-2">{{ p.clientName }}</td>
+          <td class="border-b border-border p-2 text-caption">{{ p.lawyerName ?? '—' }}</td>
           <td class="border-b border-border p-2">{{ p.courtCode }}</td>
           <td class="border-b border-border p-2"><StatusBadge :situation="p.situation" /></td>
           <td class="border-b border-border p-2 text-caption">{{ formatRelative(p.lastCheckedAt) }}</td>

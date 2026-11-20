@@ -46,7 +46,8 @@ class DjenClientAdapter implements DjenClient {
             int current = page;
             DjenDtos.CommunicationPage response = call("search", () -> feign.searchCommunications(
                     search.processNumber(), search.courtCode(), iso(search.from()), iso(search.to()),
-                    search.oabNumber(), search.oabUf(), search.lawyerName(), current, properties.pageSize()));
+                    search.oabNumber(), search.oabUf(), search.lawyerName(), search.partyName(),
+                    current, properties.pageSize()));
             if (response == null) {
                 return result;
             }

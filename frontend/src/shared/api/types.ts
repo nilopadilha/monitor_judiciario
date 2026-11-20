@@ -64,6 +64,9 @@ export interface Process {
   id: string
   clientId: string
   clientName?: string
+  lawyerId?: string
+  lawyerName?: string
+  practiceArea?: string
   number: string
   courtCode: string
   subject?: string
@@ -203,6 +206,56 @@ export interface ClientDataExport {
   client: Record<string, unknown>
   processes: Record<string, unknown>[]
   notifications: Record<string, unknown>[]
+}
+
+export type PracticeArea =
+  | 'CIVEL'
+  | 'TRABALHISTA'
+  | 'TRIBUTARIO'
+  | 'FAMILIA'
+  | 'CRIMINAL'
+  | 'PREVIDENCIARIO'
+  | 'EMPRESARIAL'
+  | 'CONSUMIDOR'
+  | 'ADMINISTRATIVO'
+  | 'OUTROS'
+
+export interface Lawyer {
+  id: string
+  name: string
+  oabNumber: string
+  oabUf: string
+  oabFormatted: string
+  practiceArea: PracticeArea
+  practiceAreaLabel: string
+  email: string
+  phone?: string
+  userId?: string
+  notifyEmail: boolean
+  notifyWhatsapp: boolean
+  active: boolean
+  createdAt: string
+}
+
+export interface LawyerInput {
+  name: string
+  oabNumber: string
+  oabUf: string
+  practiceArea: PracticeArea
+  email: string
+  phone?: string
+  userId?: string
+  notifyEmail: boolean
+  notifyWhatsapp: boolean
+}
+
+export interface DiscoveryResult {
+  communicationsFound: number
+  processesCreated: number
+  processesLinked: number
+  alreadyRegistered: number
+  processNumbers: string[]
+  unmatchedProcessNumbers: string[]
 }
 
 /** RFC 9457 Problem Details */

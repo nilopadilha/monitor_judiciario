@@ -28,6 +28,8 @@ class ProcessPersistenceAdapter implements ProcessRepository {
         ProcessEntity e = new ProcessEntity();
         e.setId(p.id());
         e.setClientId(p.clientId());
+        e.setLawyerId(p.lawyerId().orElse(null));
+        e.setPracticeArea(p.practiceArea().orElse(null));
         e.setProcessNumber(p.number().digits());
         e.setCourtCode(p.courtCode());
         e.setSubject(p.subject().orElse(null));
@@ -74,6 +76,9 @@ class ProcessPersistenceAdapter implements ProcessRepository {
         if (filter.clientId() != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("clientId"), filter.clientId()));
         }
+        if (filter.lawyerId() != null) {
+            spec = spec.and((root, query, cb) -> cb.equal(root.get("lawyerId"), filter.lawyerId()));
+        }
         if (filter.status() != null) {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), filter.status()));
         }
@@ -94,7 +99,8 @@ class ProcessPersistenceAdapter implements ProcessRepository {
     }
 
     private static Process toDomain(ProcessEntity e) {
-        return new Process(e.getId(), e.getClientId(), new ProcessNumber(e.getProcessNumber()), e.getSubject(),
-                e.getStatus(), e.isConfidential(), e.getLastCheckedAt(), e.getCreatedAt(), e.getUpdatedAt());
+        return new Process(e.getId(), e.getClientId(), e.getLawyerId(), e.getPracticeArea(),
+                new ProcessNumber(e.getProcessNumber()), e.getSubject(), e.getStatus(), e.isConfidential(),
+                e.getLastCheckedAt(), e.getCreatedAt(), e.getUpdatedAt());
     }
 }

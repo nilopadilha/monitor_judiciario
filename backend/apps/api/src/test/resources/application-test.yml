@@ -14,6 +14,9 @@ monitoring:
     enabled: false
   max-concurrency: 4
 
+discovery:
+  auto-on-register: false
+
 outbox:
   relay-interval: PT0.2S
 

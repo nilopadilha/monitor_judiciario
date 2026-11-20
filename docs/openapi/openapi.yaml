@@ -48,7 +48,8 @@ paths:
     put:
       tags:
       - Processos
-      summary: "Altera assunto, status (ACTIVE/PAUSED) e sigilo"
+      summary: "Altera assunto, status (ACTIVE/PAUSED), sigilo e advogado responsá\
+        vel"
       operationId: update
       parameters:
       - name: id
@@ -85,12 +86,72 @@ paths:
       responses:
         "204":
           description: No Content
+  /api/v1/lawyers/{id}:
+    get:
+      tags:
+      - Advogados
+      summary: Detalha advogado
+      operationId: get_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LawyerView"
+    put:
+      tags:
+      - Advogados
+      summary: Altera dados do advogado (a OAB é imutável)
+      operationId: update_1
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LawyerRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LawyerView"
+    delete:
+      tags:
+      - Advogados
+      summary: Inativa advogado
+      operationId: deactivate
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "204":
+          description: No Content
   /api/v1/clients/{id}:
     get:
       tags:
       - Clientes
       summary: Detalha cliente
-      operationId: get_1
+      operationId: get_2
       parameters:
       - name: id
         in: path
@@ -109,7 +170,7 @@ paths:
       tags:
       - Clientes
       summary: Altera cliente (o documento não muda)
-      operationId: update_1
+      operationId: update_2
       parameters:
       - name: id
         in: path
@@ -259,6 +320,12 @@ paths:
       operationId: list_1
       parameters:
       - name: clientId
+        in: query
+        required: false
+        schema:
+          type: string
+          format: uuid
+      - name: lawyerId
         in: query
         required: false
         schema:
@@ -442,12 +509,104 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/MonitoringExecutionView"
+  /api/v1/lawyers:
+    get:
+      tags:
+      - Advogados
+      summary: "Lista advogados do escritório (busca por nome, OAB ou área)"
+      operationId: list_4
+      parameters:
+      - name: q
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: practiceArea
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - CIVEL
+          - TRABALHISTA
+          - TRIBUTARIO
+          - FAMILIA
+          - CRIMINAL
+          - PREVIDENCIARIO
+          - EMPRESARIAL
+          - CONSUMIDOR
+          - ADMINISTRATIVO
+          - OUTROS
+      - name: active
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      - name: size
+        in: query
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PageResultLawyerView"
+    post:
+      tags:
+      - Advogados
+      summary: Cadastra advogado (OAB + UF + área do direito)
+      operationId: create_3
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LawyerRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/LawyerView"
+  /api/v1/lawyers/{id}/process-discoveries:
+    post:
+      tags:
+      - Descoberta Automática
+      summary: Busca processos no DJEN pela OAB/UF do advogado e auto-vincula
+      operationId: discoverForLawyer
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DiscoveryResult"
   /api/v1/clients:
     get:
       tags:
       - Clientes
       summary: Lista clientes (busca por nome ou documento)
-      operationId: list_4
+      operationId: list_5
       parameters:
       - name: q
         in: query
@@ -488,7 +647,7 @@ paths:
       tags:
       - Clientes
       summary: Cadastra cliente
-      operationId: create_3
+      operationId: create_4
       requestBody:
         content:
           application/json:
@@ -502,6 +661,26 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ClientView"
+  /api/v1/clients/{id}/process-discoveries:
+    post:
+      tags:
+      - Descoberta Automática
+      summary: Busca processos no DJEN pelo nome do cliente e auto-vincula imediatamente
+      operationId: discoverForClient
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/DiscoveryResult"
   /api/v1/clients/{id}/anonymizations:
     post:
       tags:
@@ -527,7 +706,7 @@ paths:
       tags:
       - Usuários
       summary: Detalha usuário
-      operationId: get_2
+      operationId: get_3
       parameters:
       - name: id
         in: path
@@ -597,7 +776,7 @@ paths:
       tags:
       - Publicações
       summary: Detalha publicação
-      operationId: get_3
+      operationId: get_4
       parameters:
       - name: id
         in: path
@@ -687,7 +866,7 @@ paths:
       tags:
       - Tribunais
       summary: Lista tribunais
-      operationId: list_5
+      operationId: list_6
       parameters:
       - name: active
         in: query
@@ -708,7 +887,7 @@ paths:
       tags:
       - Publicações
       summary: Lista publicações (CUSTOMER vê apenas as do seu cliente)
-      operationId: list_6
+      operationId: list_7
       parameters:
       - name: processId
         in: query
@@ -759,7 +938,7 @@ paths:
       tags:
       - Processos
       summary: Linha do tempo de movimentações do processo
-      operationId: list_7
+      operationId: list_8
       parameters:
       - name: processId
         in: path
@@ -793,7 +972,7 @@ paths:
       tags:
       - Monitoramento
       summary: Detalha execução com o resultado por processo
-      operationId: get_4
+      operationId: get_5
       parameters:
       - name: id
         in: path
@@ -846,7 +1025,7 @@ paths:
       tags:
       - Auditoria
       summary: Consulta a trilha de auditoria
-      operationId: list_8
+      operationId: list_9
       parameters:
       - name: resourceType
         in: query
@@ -927,6 +1106,13 @@ components:
           - ARCHIVED
         confidential:
           type: boolean
+        lawyerId:
+          type: string
+          format: uuid
+        practiceArea:
+          type: string
+          maxLength: 32
+          minLength: 0
       required:
       - status
     ProcessView:
@@ -939,6 +1125,13 @@ components:
           type: string
           format: uuid
         clientName:
+          type: string
+        lawyerId:
+          type: string
+          format: uuid
+        lawyerName:
+          type: string
+        practiceArea:
           type: string
         number:
           type: string
@@ -971,6 +1164,102 @@ components:
           type: string
           format: date-time
         createdAt:
+          type: string
+          format: date-time
+    LawyerRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+          minLength: 0
+        oabNumber:
+          type: string
+          maxLength: 20
+          minLength: 0
+        oabUf:
+          type: string
+          maxLength: 2
+          minLength: 2
+        practiceArea:
+          type: string
+          enum:
+          - CIVEL
+          - TRABALHISTA
+          - TRIBUTARIO
+          - FAMILIA
+          - CRIMINAL
+          - PREVIDENCIARIO
+          - EMPRESARIAL
+          - CONSUMIDOR
+          - ADMINISTRATIVO
+          - OUTROS
+        email:
+          type: string
+          format: email
+          minLength: 1
+        phone:
+          type: string
+          maxLength: 20
+          minLength: 0
+        userId:
+          type: string
+          format: uuid
+        notifyEmail:
+          type: boolean
+        notifyWhatsapp:
+          type: boolean
+      required:
+      - email
+      - name
+      - oabNumber
+      - oabUf
+    LawyerView:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        oabNumber:
+          type: string
+        oabUf:
+          type: string
+        oabFormatted:
+          type: string
+        practiceArea:
+          type: string
+          enum:
+          - CIVEL
+          - TRABALHISTA
+          - TRIBUTARIO
+          - FAMILIA
+          - CRIMINAL
+          - PREVIDENCIARIO
+          - EMPRESARIAL
+          - CONSUMIDOR
+          - ADMINISTRATIVO
+          - OUTROS
+        practiceAreaLabel:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        userId:
+          type: string
+          format: uuid
+        notifyEmail:
+          type: boolean
+        notifyWhatsapp:
+          type: boolean
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
           type: string
           format: date-time
     ClientRequest:
@@ -1159,6 +1448,13 @@ components:
         clientId:
           type: string
           format: uuid
+        lawyerId:
+          type: string
+          format: uuid
+        practiceArea:
+          type: string
+          maxLength: 32
+          minLength: 0
         number:
           type: string
           minLength: 1
@@ -1292,6 +1588,29 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/JobView"
+    DiscoveryResult:
+      type: object
+      properties:
+        communicationsFound:
+          type: integer
+          format: int32
+        processesCreated:
+          type: integer
+          format: int32
+        processesLinked:
+          type: integer
+          format: int32
+        alreadyRegistered:
+          type: integer
+          format: int32
+        processNumbers:
+          type: array
+          items:
+            type: string
+        unmatchedProcessNumbers:
+          type: array
+          items:
+            type: string
     UpdateUserStatusRequest:
       type: object
       properties:
@@ -1582,6 +1901,25 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MonitoringExecutionView"
+        page:
+          type: integer
+          format: int32
+        size:
+          type: integer
+          format: int32
+        totalElements:
+          type: integer
+          format: int64
+        totalPages:
+          type: integer
+          format: int32
+    PageResultLawyerView:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/LawyerView"
         page:
           type: integer
           format: int32

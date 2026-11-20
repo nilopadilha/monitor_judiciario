@@ -95,6 +95,8 @@ onMounted(loadPublications)
         <div class="flex flex-col gap-1">
           <span class="text-label text-muted-foreground">
             {{ process.courtCode }} · {{ process.clientName }}
+            <span v-if="process.lawyerName">· Adv.: {{ process.lawyerName }}</span>
+            <span v-if="process.practiceArea">· {{ process.practiceArea }}</span>
             <span v-if="process.confidential" class="ml-2 rounded bg-accent px-2 py-0.5 text-[11px] font-semibold text-foreground">
               Segredo de justiça
             </span>

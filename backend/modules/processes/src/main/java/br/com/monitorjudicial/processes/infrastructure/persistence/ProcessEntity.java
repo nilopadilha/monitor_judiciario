@@ -26,6 +26,12 @@ public class ProcessEntity {
     @Column(name = "client_id", nullable = false)
     private UUID clientId;
 
+    @Column(name = "lawyer_id")
+    private UUID lawyerId;
+
+    @Column(name = "practice_area")
+    private String practiceArea;
+
     @Column(name = "process_number", nullable = false, unique = true)
     private String processNumber;
 

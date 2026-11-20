@@ -13,6 +13,7 @@ import br.com.monitorjudicial.shared.domain.ConflictException;
 import br.com.monitorjudicial.shared.domain.Email;
 import br.com.monitorjudicial.shared.domain.Phone;
 import br.com.monitorjudicial.shared.domain.ResourceNotFoundException;
+import br.com.monitorjudicial.shared.discovery.ClientRegisteredEvent;
 import br.com.monitorjudicial.shared.lgpd.ClientAnonymizedEvent;
 import java.time.Clock;
 import java.time.Instant;
@@ -55,6 +56,7 @@ public class ClientService implements ClientDirectory {
                 phoneOrNull(command.phone()), command.notifyEmail(), command.notifyWhatsapp(),
                 command.legalBasis(), command.privacyNoticeVersion(), clock.instant());
         clients.save(client);
+        events.publishEvent(new ClientRegisteredEvent(client.id(), client.name(), client.createdAt()));
         auditor.record("CREATE", RESOURCE, client.id(),
                 Map.of("document", document.masked(), "legalBasis", client.legalBasis().name()));
         return ClientView.of(client);

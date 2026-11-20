@@ -41,13 +41,14 @@ public class ProcessController {
     @Operation(summary = "Lista processos (CUSTOMER vê apenas os do seu cliente)")
     @GetMapping
     public PageResult<ProcessView> list(@RequestParam(required = false) UUID clientId,
+            @RequestParam(required = false) UUID lawyerId,
             @RequestParam(required = false) ProcessStatus status,
             @RequestParam(required = false) String courtCode,
             @RequestParam(required = false) String number,
             @RequestParam(required = false) MonitoringSituation situation,
             @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
             @AuthenticationPrincipal CurrentUser user) {
-        return processes.search(new ProcessSearch(clientId, status, courtCode, number, situation),
+        return processes.search(new ProcessSearch(clientId, lawyerId, status, courtCode, number, situation),
                 PageQuery.of(page, size), user);
     }
 
@@ -61,16 +62,17 @@ public class ProcessController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ResponseEntity<ProcessView> create(@Valid @RequestBody RegisterProcessRequest request) {
-        ProcessView created = processes.register(new RegisterProcessCommand(request.clientId(), request.number(),
-                request.subject(), Boolean.TRUE.equals(request.confidential())));
+        ProcessView created = processes.register(new RegisterProcessCommand(request.clientId(), request.lawyerId(),
+                request.practiceArea(), request.number(), request.subject(), Boolean.TRUE.equals(request.confidential())));
         return ResponseEntity.created(URI.create("/api/v1/processes/" + created.id())).body(created);
     }
 
-    @Operation(summary = "Altera assunto, status (ACTIVE/PAUSED) e sigilo")
+    @Operation(summary = "Altera assunto, status (ACTIVE/PAUSED), sigilo e advogado responsável")
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public ProcessView update(@PathVariable UUID id, @Valid @RequestBody UpdateProcessRequest request) {
-        return processes.update(id, request.subject(), request.status(), request.confidential());
+        return processes.update(id, request.subject(), request.status(), request.confidential(), request.lawyerId(),
+                request.practiceArea());
     }
 
     @Operation(summary = "Arquiva processo (encerra o monitoramento, preserva histórico)")

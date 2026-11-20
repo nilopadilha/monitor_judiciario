@@ -118,6 +118,9 @@ monitoring:
   scheduler:
     enabled: true
 
+discovery:
+  auto-on-register: ${DISCOVERY_AUTO_ON_REGISTER:true}
+
 outbox:
   relay-interval: PT2S
   relay:

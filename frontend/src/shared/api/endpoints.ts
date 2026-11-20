@@ -7,10 +7,14 @@ import type {
   ClientInput,
   CreateUserInput,
   DashboardSummary,
+  DiscoveryResult,
+  Lawyer,
+  LawyerInput,
   MonitoringExecution,
   Movement,
   Notification,
   Page,
+  PracticeArea,
   Process,
   ProcessStatus,
   Publication,
@@ -42,12 +46,12 @@ export const dashboardApi = {
 }
 
 export const processesApi = {
-  list: (params: { situation?: Situation; clientId?: string; number?: string; page?: number; size?: number } = {}) =>
+  list: (params: { situation?: Situation; clientId?: string; lawyerId?: string; number?: string; page?: number; size?: number } = {}) =>
     http.get<Page<Process>>('/processes', { params: clean(params) }).then((r) => r.data),
   get: (id: string) => http.get<Process>(`/processes/${id}`).then((r) => r.data),
-  create: (input: { clientId: string; number: string; subject?: string; confidential?: boolean }) =>
+  create: (input: { clientId: string; lawyerId?: string; practiceArea?: string; number: string; subject?: string; confidential?: boolean }) =>
     http.post<Process>('/processes', input).then((r) => r.data),
-  update: (id: string, input: { subject?: string; status: ProcessStatus; confidential?: boolean }) =>
+  update: (id: string, input: { subject?: string; status: ProcessStatus; confidential?: boolean; lawyerId?: string; practiceArea?: string }) =>
     http.put<Process>(`/processes/${id}`, input).then((r) => r.data),
   archive: (id: string) => http.delete(`/processes/${id}`),
   movements: (id: string) => http.get<Page<Movement>>(`/processes/${id}/movements`).then((r) => r.data),
@@ -67,6 +71,18 @@ export const clientsApi = {
   update: (id: string, input: ClientInput) => http.put<Client>(`/clients/${id}`, input).then((r) => r.data),
   deactivate: (id: string) => http.delete(`/clients/${id}`),
   anonymize: (id: string) => http.post<Client>(`/clients/${id}/anonymizations`).then((r) => r.data),
+  discoverProcesses: (id: string) =>
+    http.post<DiscoveryResult>(`/clients/${id}/process-discoveries`).then((r) => r.data),
+}
+
+export const lawyersApi = {
+  list: (params: { q?: string; practiceArea?: PracticeArea; active?: boolean; page?: number; size?: number } = {}) =>
+    http.get<Page<Lawyer>>('/lawyers', { params: clean(params) }).then((r) => r.data),
+  create: (input: LawyerInput) => http.post<Lawyer>('/lawyers', input).then((r) => r.data),
+  update: (id: string, input: LawyerInput) => http.put<Lawyer>(`/lawyers/${id}`, input).then((r) => r.data),
+  deactivate: (id: string) => http.delete(`/lawyers/${id}`),
+  discoverProcesses: (id: string) =>
+    http.post<DiscoveryResult>(`/lawyers/${id}/process-discoveries`).then((r) => r.data),
 }
 
 export const usersApi = {

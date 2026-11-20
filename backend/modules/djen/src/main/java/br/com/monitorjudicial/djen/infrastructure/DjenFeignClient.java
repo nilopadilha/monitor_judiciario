@@ -19,6 +19,7 @@ interface DjenFeignClient {
             @RequestParam(name = "numeroOab", required = false) String numeroOab,
             @RequestParam(name = "ufOab", required = false) String ufOab,
             @RequestParam(name = "nomeAdvogado", required = false) String nomeAdvogado,
+            @RequestParam(name = "nomeParte", required = false) String nomeParte,
             @RequestParam(name = "pagina") int pagina,
             @RequestParam(name = "itensPorPagina") int itensPorPagina);
 

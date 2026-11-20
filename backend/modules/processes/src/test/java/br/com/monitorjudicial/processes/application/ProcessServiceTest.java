@@ -10,6 +10,8 @@ import static org.mockito.Mockito.when;
 
 import br.com.monitorjudicial.clients.api.ClientDirectory;
 import br.com.monitorjudicial.clients.api.ClientSummary;
+import br.com.monitorjudicial.lawyers.api.LawyerDirectory;
+import br.com.monitorjudicial.lawyers.api.LawyerSummary;
 import br.com.monitorjudicial.processes.CnjNumbers;
 import br.com.monitorjudicial.processes.api.ProcessMonitoringInsights;
 import br.com.monitorjudicial.processes.api.ProcessMonitoringStatus;
@@ -43,10 +45,11 @@ class ProcessServiceTest {
 
     private final ProcessRepository repository = mock(ProcessRepository.class);
     private final ClientDirectory clients = mock(ClientDirectory.class);
+    private final LawyerDirectory lawyers = mock(LawyerDirectory.class);
     private final TribunalDirectory tribunals = mock(TribunalDirectory.class);
     private final ProcessMonitoringInsights insights = mock(ProcessMonitoringInsights.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-23T10:00:00Z"), ZoneOffset.UTC);
-    private final ProcessService service = new ProcessService(repository, clients, tribunals, insights,
+    private final ProcessService service = new ProcessService(repository, clients, lawyers, tribunals, insights,
             mock(Auditor.class), clock);
 
     private final UUID clientId = UUID.randomUUID();
@@ -67,10 +70,16 @@ class ProcessServiceTest {
     }
 
     @Test
-    void registersProcessDerivingCourt() {
-        ProcessView view = service.register(new RegisterProcessCommand(clientId, CnjNumbers.tjsp(10), "Cobrança"));
+    void registersProcessDerivingCourtAndAssignsLawyer() {
+        UUID lawyerId = UUID.randomUUID();
+        when(lawyers.findById(lawyerId)).thenReturn(Optional.of(new LawyerSummary(lawyerId, "Dra. Ana", "12345",
+                "SP", "TRABALHISTA", "ana@x.com", null, null, true, false, true)));
+        ProcessView view = service.register(new RegisterProcessCommand(clientId, lawyerId, null,
+                CnjNumbers.tjsp(10), "Cobrança", false));
         assertThat(view.courtCode()).isEqualTo("TJSP");
         assertThat(view.clientName()).isEqualTo("Horizonte");
+        assertThat(view.lawyerName()).isEqualTo("Dra. Ana");
+        assertThat(view.practiceArea()).isEqualTo("TRABALHISTA");
         assertThat(view.situation()).isEqualTo(MonitoringSituation.MONITORED);
     }
 

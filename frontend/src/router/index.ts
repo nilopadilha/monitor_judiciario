@@ -29,6 +29,7 @@ export const routes: RouteRecordRaw[] = [
       { path: 'processos/:id', name: 'process', component: () => import('@/features/processes/ProcessDetailView.vue'), meta: { title: 'Processo' } },
       { path: 'publicacoes', name: 'publications', component: () => import('@/features/publications/PublicationsView.vue'), meta: { title: 'Publicações' } },
       { path: 'clientes', name: 'clients', component: () => import('@/features/clients/ClientsView.vue'), meta: { title: 'Clientes', roles: staff } },
+      { path: 'advogados', name: 'lawyers', component: () => import('@/features/lawyers/LawyersView.vue'), meta: { title: 'Advogados', roles: staff } },
       { path: 'notificacoes', name: 'notifications', component: () => import('@/features/notifications/NotificationsView.vue'), meta: { title: 'Notificações' } },
       { path: 'monitoramento', name: 'monitoring', component: () => import('@/features/monitoring/MonitoringView.vue'), meta: { title: 'Monitoramento', roles: staff } },
       { path: 'tribunais', name: 'tribunals', component: () => import('@/features/tribunals/TribunalsView.vue'), meta: { title: 'Tribunais', roles: adminOnly } },

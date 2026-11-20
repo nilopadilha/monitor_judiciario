@@ -12,6 +12,8 @@ public final class Process {
 
     private final UUID id;
     private final UUID clientId;
+    private UUID lawyerId;
+    private String practiceArea;
     private final ProcessNumber number;
     private final String courtCode;
     private String subject;
@@ -23,13 +25,20 @@ public final class Process {
 
     public Process(UUID id, UUID clientId, ProcessNumber number, String subject, ProcessStatus status,
             Instant lastCheckedAt, Instant createdAt, Instant updatedAt) {
-        this(id, clientId, number, subject, status, false, lastCheckedAt, createdAt, updatedAt);
+        this(id, clientId, null, null, number, subject, status, false, lastCheckedAt, createdAt, updatedAt);
     }
 
     public Process(UUID id, UUID clientId, ProcessNumber number, String subject, ProcessStatus status,
             boolean confidential, Instant lastCheckedAt, Instant createdAt, Instant updatedAt) {
+        this(id, clientId, null, null, number, subject, status, confidential, lastCheckedAt, createdAt, updatedAt);
+    }
+
+    public Process(UUID id, UUID clientId, UUID lawyerId, String practiceArea, ProcessNumber number, String subject,
+            ProcessStatus status, boolean confidential, Instant lastCheckedAt, Instant createdAt, Instant updatedAt) {
         this.id = Guard.requireNonNull(id, "invalid-process", "Id é obrigatório.");
         this.clientId = Guard.requireNonNull(clientId, "invalid-process-client", "Cliente é obrigatório.");
+        this.lawyerId = lawyerId;
+        this.practiceArea = normalizeArea(practiceArea);
         this.number = Guard.requireNonNull(number, "invalid-process-number", "Número é obrigatório.");
         this.courtCode = number.courtCode();
         this.status = Guard.requireNonNull(status, "invalid-process-status", "Status é obrigatório.");
@@ -41,19 +50,30 @@ public final class Process {
     }
 
     public static Process register(UUID clientId, ProcessNumber number, String subject, Instant now) {
-        return register(clientId, number, subject, false, now);
+        return register(clientId, null, null, number, subject, false, now);
     }
 
     public static Process register(UUID clientId, ProcessNumber number, String subject, boolean confidential,
             Instant now) {
-        return new Process(Ids.newId(), clientId, number, subject, ProcessStatus.ACTIVE, confidential, null, now, now);
+        return register(clientId, null, null, number, subject, confidential, now);
+    }
+
+    public static Process register(UUID clientId, UUID lawyerId, String practiceArea, ProcessNumber number,
+            String subject, boolean confidential, Instant now) {
+        return new Process(Ids.newId(), clientId, lawyerId, practiceArea, number, subject, ProcessStatus.ACTIVE,
+                confidential, null, now, now);
     }
 
     public void update(String subject, ProcessStatus status, Instant now) {
-        update(subject, status, this.confidential, now);
+        update(subject, status, this.confidential, this.lawyerId, this.practiceArea, now);
     }
 
     public void update(String subject, ProcessStatus status, boolean confidential, Instant now) {
+        update(subject, status, confidential, this.lawyerId, this.practiceArea, now);
+    }
+
+    public void update(String subject, ProcessStatus status, boolean confidential, UUID lawyerId, String practiceArea,
+            Instant now) {
         if (this.status == ProcessStatus.ARCHIVED && status != ProcessStatus.ARCHIVED) {
             throw new BusinessRuleViolationException("process-archived",
                     "Processo arquivado não pode ser reativado; cadastre-o novamente.");
@@ -61,6 +81,8 @@ public final class Process {
         this.subject = normalizeSubject(subject);
         this.status = Guard.requireNonNull(status, "invalid-process-status", "Status é obrigatório.");
         this.confidential = confidential;
+        this.lawyerId = lawyerId;
+        this.practiceArea = normalizeArea(practiceArea);
         this.updatedAt = now;
     }
 
@@ -88,12 +110,28 @@ public final class Process {
         return s;
     }
 
+    private static String normalizeArea(String area) {
+        if (area == null || area.isBlank()) {
+            return null;
+        }
+        String s = area.strip().toUpperCase(java.util.Locale.ROOT);
+        return s.length() > 32 ? s.substring(0, 32) : s;
+    }
+
     public UUID id() {
         return id;
     }
 
     public UUID clientId() {
         return clientId;
+    }
+
+    public Optional<UUID> lawyerId() {
+        return Optional.ofNullable(lawyerId);
+    }
+
+    public Optional<String> practiceArea() {
+        return Optional.ofNullable(practiceArea);
     }
 
     public ProcessNumber number() {

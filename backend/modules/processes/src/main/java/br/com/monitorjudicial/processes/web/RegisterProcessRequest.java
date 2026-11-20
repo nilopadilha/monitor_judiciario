@@ -5,6 +5,6 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.UUID;
 
-public record RegisterProcessRequest(@NotNull UUID clientId, @NotBlank String number, @Size(max = 300) String subject,
-        Boolean confidential) {
+public record RegisterProcessRequest(@NotNull UUID clientId, UUID lawyerId, @Size(max = 32) String practiceArea,
+        @NotBlank String number, @Size(max = 300) String subject, Boolean confidential) {
 }

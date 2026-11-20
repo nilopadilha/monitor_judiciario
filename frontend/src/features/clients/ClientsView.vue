@@ -21,6 +21,7 @@ const status = ref<ClientStatus | ''>('ACTIVE')
 const current = ref(0)
 const editing = ref<Client | null>(null)
 const open = ref(false)
+const discoveringId = ref<string | null>(null)
 const problem = ref<Problem | null>(null)
 const feedback = ref('')
 
@@ -50,8 +51,21 @@ async function edit(client: Client | null) {
 
 async function onSaved() {
   open.value = false
-  feedback.value = 'Cliente salvo com sucesso.'
+  feedback.value = 'Cliente salvo. A busca automática de processos em nome do cliente no DJEN foi iniciada.'
   await load()
+}
+
+async function discover(client: Client) {
+  discoveringId.value = client.id
+  problem.value = null
+  try {
+    const res = await clientsApi.discoverProcesses(client.id)
+    feedback.value = `DJEN (${client.name}): ${res.communicationsFound} publicações analisadas, ${res.processesCreated} novos processos vinculados.`
+  } catch (error) {
+    problem.value = toProblem(error)
+  } finally {
+    discoveringId.value = null
+  }
 }
 
 async function deactivate(client: Client) {
@@ -143,6 +157,9 @@ onMounted(load)
                 {{ [c.notifyEmail && 'E-mail', c.notifyWhatsapp && 'WhatsApp'].filter(Boolean).join(' · ') }}
               </td>
               <td class="border-b border-border p-2 text-right whitespace-nowrap">
+                <Button v-if="c.status === 'ACTIVE'" variant="outline" size="sm" :loading="discoveringId === c.id" @click="discover(c)">
+                  Buscar processos
+                </Button>
                 <Button v-if="c.status !== 'ANONYMIZED'" variant="ghost" size="sm" @click="edit(c)">Editar</Button>
                 <Button variant="ghost" size="sm" @click="exportData(c)">Exportar LGPD</Button>
                 <Button v-if="c.status === 'ACTIVE'" variant="ghost" size="sm" class="text-destructive" @click="deactivate(c)">Inativar</Button>

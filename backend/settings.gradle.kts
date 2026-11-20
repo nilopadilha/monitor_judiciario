@@ -4,6 +4,7 @@ include(
     ":shared",
     ":modules:authentication",
     ":modules:clients",
+    ":modules:lawyers",
     ":modules:tribunals",
     ":modules:processes",
     ":modules:djen",

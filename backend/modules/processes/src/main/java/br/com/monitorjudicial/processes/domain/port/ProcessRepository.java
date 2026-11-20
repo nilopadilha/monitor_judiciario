@@ -28,7 +28,12 @@ public interface ProcessRepository {
     PageResult<Process> search(ProcessFilter filter, PageQuery page);
 
     /** {@code restrictTo} nulo = sem restrição; vazio = nenhum resultado. */
-    record ProcessFilter(UUID clientId, ProcessStatus status, String courtCode, String number,
+    record ProcessFilter(UUID clientId, UUID lawyerId, ProcessStatus status, String courtCode, String number,
             Collection<UUID> restrictTo) {
+
+        public ProcessFilter(UUID clientId, ProcessStatus status, String courtCode, String number,
+                Collection<UUID> restrictTo) {
+            this(clientId, null, status, courtCode, number, restrictTo);
+        }
     }
 }
