@@ -67,6 +67,7 @@ public class SecurityConfig {
             @Value("${security.cors.allowed-origins:http://localhost:5173}") List<String> allowedOrigins) {
         var config = new CorsConfiguration();
         config.setAllowedOrigins(allowedOrigins);
+        config.setAllowCredentials(true);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Correlation-Id"));
         config.setExposedHeaders(List.of("X-Correlation-Id", "Location", "Retry-After"));

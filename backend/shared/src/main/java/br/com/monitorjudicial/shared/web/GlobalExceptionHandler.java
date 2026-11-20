@@ -4,12 +4,14 @@ import br.com.monitorjudicial.shared.observability.CorrelationId;
 import br.com.monitorjudicial.shared.domain.BusinessRuleViolationException;
 import br.com.monitorjudicial.shared.domain.ConflictException;
 import br.com.monitorjudicial.shared.domain.DomainException;
+import br.com.monitorjudicial.shared.domain.ExternalServiceUnavailableException;
 import br.com.monitorjudicial.shared.domain.ResourceNotFoundException;
 import br.com.monitorjudicial.shared.domain.UnauthorizedException;
 import jakarta.validation.ConstraintViolationException;
 import java.net.URI;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -55,9 +57,15 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.CONFLICT, ex, "Conflito");
     }
 
+    @ExceptionHandler(ExternalServiceUnavailableException.class)
+    ProblemDetail badGateway(ExternalServiceUnavailableException ex) {
+        return problem(HttpStatus.BAD_GATEWAY, ex, "Serviço externo indisponível");
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     ProblemDetail integrity(DataIntegrityViolationException ex) {
-        log.warn("Violação de integridade: {}", ex.getMostSpecificCause().getMessage());
+        Throwable cause = ex.getMostSpecificCause();
+        log.warn("Violação de integridade de dados ({})", cause.getClass().getSimpleName());
         return base(HttpStatus.CONFLICT, "data-integrity", "Conflito",
                 "A operação viola uma restrição de unicidade ou referência.");
     }
@@ -96,7 +104,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         ProblemDetail pd = base(HttpStatus.BAD_REQUEST, "validation", "Dados inválidos",
                 "Um ou mais campos são inválidos.");
         Map<String, String> errors = new LinkedHashMap<>();
-        ex.getBindingResult().getFieldErrors().forEach(e -> errors.putIfAbsent(e.getField(), e.getDefaultMessage()));
+        ex.getBindingResult().getFieldErrors().forEach(
+                e -> errors.putIfAbsent(e.getField(), Objects.requireNonNullElse(e.getDefaultMessage(), "Valor inválido.")));
         pd.setProperty("errors", errors);
         return ResponseEntity.badRequest().body(pd);
     }

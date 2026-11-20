@@ -4,6 +4,7 @@ import br.com.monitorjudicial.monitoring.application.PublicationService;
 import br.com.monitorjudicial.monitoring.application.PublicationView;
 import br.com.monitorjudicial.shared.application.PageQuery;
 import br.com.monitorjudicial.shared.application.PageResult;
+import br.com.monitorjudicial.shared.domain.BusinessRuleViolationException;
 import br.com.monitorjudicial.shared.security.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -52,6 +53,10 @@ public class PublicationController {
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public PublicationView patch(@PathVariable UUID id, @Valid @RequestBody PublicationPatchRequest request,
             @AuthenticationPrincipal CurrentUser user) {
+        if (!Boolean.TRUE.equals(request.read())) {
+            throw new BusinessRuleViolationException("unsupported-operation",
+                    "Não é possível desmarcar leitura de publicação.");
+        }
         return publications.markRead(id, user);
     }
 }

@@ -31,6 +31,7 @@ dependencies {
         testAnnotationProcessor(platform(bom))
     }
 
+    implementation("org.jspecify:jspecify:${Versions.jspecify}")
     compileOnly("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok")
     annotationProcessor("org.projectlombok:lombok-mapstruct-binding:${Versions.lombokMapstructBinding}")

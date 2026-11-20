@@ -59,6 +59,9 @@ class ProcessCheckerTest {
         var process = Fixtures.process(Instant.parse("2026-10-23T01:30:00Z"), Instant.parse("2026-01-01T00:00:00Z"));
         CheckWindow window = CheckWindow.of(process, today, properties.zone(), 30, 1);
         assertThat(window.from()).isEqualTo(LocalDate.of(2026, 10, 21));
+
+        var fresh = Fixtures.process(null, Instant.parse("2026-10-20T15:00:00Z"));
+        assertThat(CheckWindow.of(fresh, today, properties.zone(), 0, 1).from()).isNull();
     }
 
     @Test
@@ -69,6 +72,16 @@ class ProcessCheckerTest {
 
         assertThat(checker.check(execution, process, today)).isEqualTo(CheckOutcome.failure());
         verify(recorder).recordFailure(eq(execution), eq(process), eq(today), anyLong(), eq("DJEN fora"));
+    }
+
+    @Test
+    void complementarySourceFailureDoesNotFailDjenResults() {
+        var process = Fixtures.process(null, Instant.parse("2026-10-20T15:00:00Z"));
+        when(djen.searchCommunications(any())).thenReturn(List.of(communication("h1", process.number())));
+        when(court.movementsOf(any(), any(), any(), any())).thenThrow(new RuntimeException("DataJud timeout"));
+        when(recorder.recordSuccess(any(), eq(process), any(), eq(today), anyLong())).thenReturn(1);
+
+        assertThat(checker.check(UUID.randomUUID(), process, today)).isEqualTo(CheckOutcome.success(1));
     }
 
     private static DjenCommunication communication(String hash, String number) {

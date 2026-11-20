@@ -4,32 +4,34 @@ import { authApi } from '@/shared/api/endpoints'
 import { configureAuth } from '@/shared/api/http'
 import type { User } from '@/shared/api/types'
 
-const REFRESH_KEY = 'mj.refresh'
+const SESSION_HINT_KEY = 'mj.session'
+const LEGACY_REFRESH_KEY = 'mj.refresh'
 
-function readRefresh(): string | null {
+function hasSessionHint(): boolean {
   try {
-    return localStorage.getItem(REFRESH_KEY)
+    localStorage.removeItem(LEGACY_REFRESH_KEY)
+    return localStorage.getItem(SESSION_HINT_KEY) === '1'
   } catch {
-    return null
+    return false
   }
 }
 
-function writeRefresh(value: string | null) {
+function writeSessionHint(active: boolean) {
   try {
-    if (value) localStorage.setItem(REFRESH_KEY, value)
-    else localStorage.removeItem(REFRESH_KEY)
+    localStorage.removeItem(LEGACY_REFRESH_KEY)
+    if (active) localStorage.setItem(SESSION_HINT_KEY, '1')
+    else localStorage.removeItem(SESSION_HINT_KEY)
   } catch {
     // armazenamento indisponível: a sessão dura até fechar a aba
   }
 }
 
 /**
- * Sessão do usuário. O access token fica só em memória; o refresh token (rotativo, de uso único) sobrevive ao recarregar
- * a página. Ver README › Segurança do frontend.
+ * Sessão do usuário. O access token fica só em memória e o refresh token rotativo viaja exclusivamente em cookie
+ * HttpOnly emitido pela API (nunca armazenado em localStorage/JavaScript).
  */
 export const useAuthStore = defineStore('auth', () => {
   const accessToken = ref<string | null>(null)
-  const refreshToken = ref<string | null>(readRefresh())
   const user = ref<User | null>(null)
   let initialized: Promise<void> | null = null
 
@@ -37,44 +39,38 @@ export const useAuthStore = defineStore('auth', () => {
   const role = computed(() => user.value?.role)
   const isStaff = computed(() => role.value === 'ADMIN' || role.value === 'MANAGER')
 
-  function setTokens(access: string, refresh: string) {
+  function setAccessToken(access: string) {
     accessToken.value = access
-    refreshToken.value = refresh
-    writeRefresh(refresh)
+    writeSessionHint(true)
   }
 
   function clear() {
     accessToken.value = null
-    refreshToken.value = null
     user.value = null
-    writeRefresh(null)
+    writeSessionHint(false)
   }
 
   async function refresh(): Promise<string> {
-    if (!refreshToken.value) throw new Error('Sem sessão')
-    const pair = await authApi.refresh(refreshToken.value)
-    setTokens(pair.accessToken, pair.refreshToken)
+    const pair = await authApi.refresh()
+    setAccessToken(pair.accessToken)
     return pair.accessToken
   }
 
   async function login(email: string, password: string) {
     const pair = await authApi.login(email, password)
-    setTokens(pair.accessToken, pair.refreshToken)
+    setAccessToken(pair.accessToken)
     user.value = await authApi.me()
   }
 
   async function logout() {
-    const token = refreshToken.value
     clear()
-    if (token) {
-      await authApi.revoke(token).catch(() => undefined)
-    }
+    await authApi.revoke().catch(() => undefined)
   }
 
-  /** Restaura a sessão a partir do refresh token, uma única vez por carregamento. */
+  /** Restaura a sessão a partir do cookie HttpOnly de refresh, uma única vez por carregamento. */
   function init(): Promise<void> {
     initialized ??= (async () => {
-      if (!refreshToken.value) return
+      if (!hasSessionHint()) return
       try {
         await refresh()
         user.value = await authApi.me()
@@ -96,5 +92,5 @@ export const useAuthStore = defineStore('auth', () => {
     },
   })
 
-  return { accessToken, refreshToken, user, isAuthenticated, role, isStaff, login, logout, refresh, init }
+  return { accessToken, user, isAuthenticated, role, isStaff, login, logout, refresh, init }
 })

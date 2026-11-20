@@ -1,6 +1,7 @@
 package br.com.monitorjudicial.clients.infrastructure.persistence;
 
 import br.com.monitorjudicial.clients.domain.ClientStatus;
+import br.com.monitorjudicial.clients.domain.LegalBasis;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -43,6 +44,19 @@ public class ClientEntity {
 
     @Column(name = "notify_whatsapp", nullable = false)
     private boolean notifyWhatsapp;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "legal_basis", nullable = false)
+    private LegalBasis legalBasis = LegalBasis.CONTRACT_EXECUTION;
+
+    @Column(name = "privacy_notice_version")
+    private String privacyNoticeVersion;
+
+    @Column(name = "consent_recorded_at")
+    private Instant consentRecordedAt;
+
+    @Column(name = "anonymized_at")
+    private Instant anonymizedAt;
 
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;

@@ -35,7 +35,7 @@ class PlatformIT extends IntegrationTest {
         String yaml = mvc.perform(get("/v3/api-docs.yaml")).andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         assertThat(yaml).contains("/api/v1/monitoring-executions", "/api/v1/notifications", "/api/v1/tokens",
-                "/api/v1/dashboard-summary");
+                "/api/v1/dashboard-summary", "\"202\":");
         assertThat(yaml).doesNotContain("/run:", "/send:", "/login:");
 
         Path target = Path.of("../../../docs/openapi/openapi.yaml").normalize();

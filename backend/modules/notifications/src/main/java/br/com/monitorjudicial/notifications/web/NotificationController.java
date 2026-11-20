@@ -7,6 +7,7 @@ import br.com.monitorjudicial.notifications.domain.NotificationStatus;
 import br.com.monitorjudicial.shared.application.PageQuery;
 import br.com.monitorjudicial.shared.application.PageResult;
 import br.com.monitorjudicial.shared.security.CurrentUser;
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -23,7 +24,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-/** {@code POST /notifications} substitui {@code POST /notifications/send} do PDF (ADR-0003). */
+/** {@code POST /notifications} substitui {@code POST /notifications/send} do PDF (ADR-0003), mantendo o alias compatível. */
 @Tag(name = "Notificações")
 @RestController
 @RequestMapping("/api/v1/notifications")
@@ -47,5 +48,13 @@ public class NotificationController {
     @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
     public NotificationView send(@Valid @RequestBody SendNotificationRequest request) {
         return notifications.sendManual(request.processId(), request.channel(), request.message());
+    }
+
+    @Hidden
+    @PostMapping("/send")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAnyRole('ADMIN','MANAGER')")
+    public NotificationView sendAlias(@Valid @RequestBody SendNotificationRequest request) {
+        return send(request);
     }
 }

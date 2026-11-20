@@ -12,12 +12,15 @@ import jakarta.validation.Valid;
 import java.net.URI;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -30,6 +33,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService users;
+    private final RefreshCookieSupport cookies;
 
     @Operation(summary = "Lista usuários")
     @GetMapping
@@ -59,5 +63,23 @@ public class UserController {
     @PreAuthorize("hasRole('ADMIN')")
     public UserView get(@PathVariable UUID id) {
         return users.get(id);
+    }
+
+    @Operation(summary = "Ativa ou desativa usuário (revoga sessões ativas ao desativar)")
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public UserView updateStatus(@PathVariable UUID id, @Valid @RequestBody UpdateUserStatusRequest request,
+            @AuthenticationPrincipal CurrentUser actor) {
+        return users.setActive(id, request.active(), actor.userId());
+    }
+
+    @Operation(summary = "Altera a senha do usuário autenticado e encerra sessões ativas")
+    @PutMapping("/me/password")
+    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal CurrentUser user,
+            @Valid @RequestBody ChangePasswordRequest request) {
+        users.changePassword(user.userId(), request.currentPassword(), request.newPassword());
+        return ResponseEntity.noContent()
+                .header(HttpHeaders.SET_COOKIE, cookies.clear().toString())
+                .build();
     }
 }

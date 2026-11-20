@@ -9,6 +9,7 @@ public record ProcessEvolutionDetected(
         UUID eventId,
         UUID processId,
         UUID clientId,
+        UUID lawyerId,
         String processNumber,
         String courtCode,
         UUID publicationId,
@@ -16,5 +17,20 @@ public record ProcessEvolutionDetected(
         String movementType,
         String movementLabel,
         String excerpt,
-        Instant detectedAt) {
+        Instant detectedAt,
+        boolean confidential) {
+
+    public ProcessEvolutionDetected(UUID eventId, UUID processId, UUID clientId, String processNumber,
+            String courtCode, UUID publicationId, LocalDate publicationDate, String movementType, String movementLabel,
+            String excerpt, Instant detectedAt) {
+        this(eventId, processId, clientId, null, processNumber, courtCode, publicationId, publicationDate, movementType,
+                movementLabel, excerpt, detectedAt, false);
+    }
+
+    public ProcessEvolutionDetected(UUID eventId, UUID processId, UUID clientId, String processNumber,
+            String courtCode, UUID publicationId, LocalDate publicationDate, String movementType, String movementLabel,
+            String excerpt, Instant detectedAt, boolean confidential) {
+        this(eventId, processId, clientId, null, processNumber, courtCode, publicationId, publicationDate, movementType,
+                movementLabel, excerpt, detectedAt, confidential);
+    }
 }

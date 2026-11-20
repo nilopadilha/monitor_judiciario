@@ -55,10 +55,17 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+  http:
+    client:
+      connect-timeout: 5s
+      read-timeout: 15s
 
 server:
   shutdown: graceful
   forward-headers-strategy: framework
+  tomcat:
+    remoteip:
+      internal-proxies: ${TRUSTED_PROXIES:127\.0\.0\.1|::1|10\.\d{1,3}\.\d{1,3}\.\d{1,3}|172\.(1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}|192\.168\.\d{1,3}\.\d{1,3}}
   error:
     include-stacktrace: never
     include-message: never
@@ -69,6 +76,9 @@ security:
     issuer: monitor-judicial
     access-token-validity: PT15M
     refresh-token-validity: P7D
+  cookie:
+    secure: ${AUTH_COOKIE_SECURE:false}
+    same-site: ${AUTH_COOKIE_SAME_SITE:Strict}
   bcrypt-strength: 12
   rate-limit:
     tokens-per-minute: 10
@@ -81,7 +91,7 @@ security:
 
 djen:
   base-url: ${DJEN_BASE_URL:https://comunicaapi.pje.jus.br}
-  page-size: 100
+  page-size: 50
   max-pages: 50
   connect-timeout: PT5S
   read-timeout: PT30S
@@ -93,19 +103,43 @@ djen:
     tribunals: /api/v1/comunicacao/tribunal
     journal: /api/v1/caderno/{sigla}/{data}/{meio}
 
+datajud:
+  enabled: ${DATAJUD_ENABLED:false}
+  base-url: ${DATAJUD_BASE_URL:https://api-publica.datajud.cnj.jus.br}
+  api-key: ${DATAJUD_API_KEY:}
+  max-hits: ${DATAJUD_MAX_HITS:20}
+
 monitoring:
   cron: ${MONITORING_CRON:0 0 6 * * *}
   zone: America/Sao_Paulo
   max-concurrency: ${MONITORING_MAX_CONCURRENCY:8}
-  initial-lookback-days: 30
+  initial-lookback-days: ${MONITORING_INITIAL_LOOKBACK_DAYS:3650}
   overlap-days: 1
   scheduler:
     enabled: true
+
+discovery:
+  auto-on-register: ${DISCOVERY_AUTO_ON_REGISTER:true}
+  max-pages: ${DISCOVERY_MAX_PAGES:3}
+
+deadlines:
+  alert-advance-days: ${DEADLINES_ALERT_ADVANCE_DAYS:5}
+  alert-cron: ${DEADLINES_ALERT_CRON:0 30 7 * * *}
+  alerts:
+    enabled: ${DEADLINES_ALERTS_ENABLED:true}
 
 outbox:
   relay-interval: PT2S
   relay:
     enabled: true
+
+retention:
+  enabled: ${RETENTION_ENABLED:true}
+  cron: ${RETENTION_CRON:0 30 3 * * *}
+  refresh-tokens-days: ${RETENTION_REFRESH_TOKENS_DAYS:30}
+  monitoring-jobs-days: ${RETENTION_MONITORING_JOBS_DAYS:90}
+  notifications-days: ${RETENTION_NOTIFICATIONS_DAYS:365}
+  audit-logs-days: ${RETENTION_AUDIT_LOGS_DAYS:1825}
 
 notifications:
   email:

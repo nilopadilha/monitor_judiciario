@@ -4,10 +4,12 @@ import br.com.monitorjudicial.monitoring.domain.CandidatePublication;
 import br.com.monitorjudicial.monitoring.domain.port.CourtMovementSource;
 import java.time.LocalDate;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
-/** Placeholder até o adapter MNI/PJe da fase 2 (ADR-0007). */
+/** Placeholder quando DataJud/MNI está desabilitado (ADR-0007). */
 @Component
+@ConditionalOnProperty(name = "datajud.enabled", havingValue = "false", matchIfMissing = true)
 class NoopCourtMovementSource implements CourtMovementSource {
 
     @Override

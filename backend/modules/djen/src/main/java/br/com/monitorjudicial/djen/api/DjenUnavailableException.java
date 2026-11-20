@@ -1,9 +1,11 @@
 package br.com.monitorjudicial.djen.api;
 
-/** O DJEN não respondeu adequadamente após as retentativas. */
-public class DjenUnavailableException extends RuntimeException {
+import br.com.monitorjudicial.shared.domain.ExternalServiceUnavailableException;
+
+/** O DJEN não respondeu adequadamente após as retentativas (RF-014 / RF-020). */
+public class DjenUnavailableException extends ExternalServiceUnavailableException {
 
     public DjenUnavailableException(String message, Throwable cause) {
-        super(message, cause);
+        super("djen-unavailable", message, cause);
     }
 }

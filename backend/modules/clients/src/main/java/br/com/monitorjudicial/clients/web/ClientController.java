@@ -6,6 +6,8 @@ import br.com.monitorjudicial.clients.application.ClientView;
 import br.com.monitorjudicial.clients.domain.ClientStatus;
 import br.com.monitorjudicial.shared.application.PageQuery;
 import br.com.monitorjudicial.shared.application.PageResult;
+import br.com.monitorjudicial.shared.domain.BusinessRuleViolationException;
+import br.com.monitorjudicial.shared.security.CurrentUser;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -15,8 +17,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -69,7 +73,25 @@ public class ClientController {
         clients.deactivate(id);
     }
 
+    @Operation(summary = "Anonimiza dados pessoais do titular (Art. 18, IV LGPD)")
+    @PostMapping("/{id}/anonymizations")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ClientView anonymize(@PathVariable UUID id) {
+        return clients.anonymize(id);
+    }
+
+    @Operation(summary = "Atualiza preferências de notificação do titular autenticado (CUSTOMER)")
+    @PatchMapping("/me/notification-preferences")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    public ClientView updateMyPreferences(@AuthenticationPrincipal CurrentUser user,
+            @RequestBody NotificationPreferencesRequest request) {
+        UUID clientId = user.clientId().orElseThrow(() -> new BusinessRuleViolationException("no-linked-client",
+                "Usuário não possui cliente vinculado."));
+        return clients.updateNotificationPreferences(clientId, request.notifyEmail(), request.notifyWhatsapp());
+    }
+
     private static ClientCommand toCommand(ClientRequest r) {
-        return new ClientCommand(r.name(), r.document(), r.email(), r.phone(), r.notifyEmail(), r.notifyWhatsapp());
+        return new ClientCommand(r.name(), r.document(), r.email(), r.phone(), r.notifyEmail(), r.notifyWhatsapp(),
+                r.legalBasis(), r.privacyNoticeVersion());
     }
 }

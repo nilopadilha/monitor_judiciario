@@ -1,0 +1,16 @@
+.git
+.github
+.idea
+.vscode
+.env
+.env.*
+docs
+infra
+scripts
+package-lock.json
+**/node_modules
+**/dist
+**/coverage
+backend/.gradle
+backend/**/.gradle
+backend/**/build

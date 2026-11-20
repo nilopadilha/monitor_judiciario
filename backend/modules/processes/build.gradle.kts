@@ -4,5 +4,6 @@ plugins {
 
 dependencies {
     implementation(project(":modules:clients"))
+    implementation(project(":modules:lawyers"))
     implementation(project(":modules:tribunals"))
 }

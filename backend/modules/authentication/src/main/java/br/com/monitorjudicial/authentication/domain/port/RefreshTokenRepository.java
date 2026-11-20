@@ -13,4 +13,7 @@ public interface RefreshTokenRepository {
 
     /** Revoga todos os tokens ainda ativos da família; retorna quantos foram revogados. */
     int revokeFamily(UUID familyId, Instant now);
+
+    /** Revoga todas as sessões ativas de um usuário (ex.: troca de senha ou desativação). */
+    int revokeAllForUser(UUID userId, Instant now);
 }

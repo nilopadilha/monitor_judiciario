@@ -75,6 +75,12 @@ class MonitoringFlowIT extends IntegrationTest {
         JsonNode movements = read(mvc.perform(auth(get("/api/v1/processes/" + processId + "/movements"), admin)));
         assertThat(movements.get("content").findValuesAsText("type")).containsExactly("SENTENCA", "DESPACHO");
 
+        // prazo recursal extraído automaticamente da Sentença detectada no DJEN
+        mvc.perform(auth(get("/api/v1/deadlines").param("processId", processId), admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+                .andExpect(jsonPath("$.content[0].autoDetected").value(true));
+
         mvc.perform(auth(get("/api/v1/processes/" + processId), admin))
                 .andExpect(jsonPath("$.situation").value("NEW_PUBLICATION"))
                 .andExpect(jsonPath("$.unreadPublications").value(2));
@@ -117,13 +123,14 @@ class MonitoringFlowIT extends IntegrationTest {
         mvc.perform(jsonBody(auth(patch("/api/v1/publications/" + publicationId), admin), Map.of("read", true)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.read").value(true));
         mvc.perform(jsonBody(auth(patch("/api/v1/publications/" + publicationId), admin), Map.of("read", false)))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isUnprocessableEntity())
+                .andExpect(jsonPath("$.type").value("https://monitorjudicial.app/problems/unsupported-operation"));
         mvc.perform(auth(get("/api/v1/publications").param("unread", "true").param("processId", processId), customer))
                 .andExpect(jsonPath("$.totalElements").value(1));
         mvc.perform(auth(get("/api/v1/publications/" + publicationId), customer)).andExpect(status().isOk());
 
-        // reexecução: idempotente, nenhuma publicação ou notificação duplicada
-        String second = mvc.perform(auth(post("/api/v1/monitoring-executions"), admin))
+        // reexecução: idempotente, nenhuma publicação ou notificação duplicada (exercita também o alias /monitoring/run do PDF)
+        String second = mvc.perform(auth(post("/api/v1/monitoring/run"), admin))
                 .andExpect(status().isAccepted()).andReturn().getResponse().getHeader("Location");
         awaitExecution(admin, second);
         mvc.perform(auth(get("/api/v1/publications").param("processId", processId), admin))
@@ -132,12 +139,18 @@ class MonitoringFlowIT extends IntegrationTest {
         mvc.perform(auth(get("/api/v1/notifications").param("processId", processId), admin))
                 .andExpect(jsonPath("$.totalElements").value(4));
 
-        // envio manual e histórico
+        // envio manual e histórico (padrão PJe e aliases do PDF)
         mvc.perform(jsonBody(auth(post("/api/v1/notifications"), admin), Map.of("processId", processId,
                         "channel", "EMAIL", "message", "Audiência redesignada para 12/11.")))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.status").value("SENT"));
+        mvc.perform(jsonBody(auth(post("/api/v1/notifications/send"), admin), Map.of("processId", processId,
+                        "channel", "EMAIL", "message", "Lembrete de prazo processual.")))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.status").value("SENT"));
         mvc.perform(auth(get("/api/v1/monitoring-executions"), admin))
+                .andExpect(jsonPath("$.content[0].trigger").value("MANUAL"));
+        mvc.perform(auth(get("/api/v1/monitoring"), admin))
                 .andExpect(jsonPath("$.content[0].trigger").value("MANUAL"));
         mvc.perform(auth(get("/api/v1/audit-logs").param("resourceType", "monitoring-execution"), admin))
                 .andExpect(status().isOk())

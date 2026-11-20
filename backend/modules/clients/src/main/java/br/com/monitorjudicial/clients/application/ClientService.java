@@ -13,17 +13,21 @@ import br.com.monitorjudicial.shared.domain.ConflictException;
 import br.com.monitorjudicial.shared.domain.Email;
 import br.com.monitorjudicial.shared.domain.Phone;
 import br.com.monitorjudicial.shared.domain.ResourceNotFoundException;
+import br.com.monitorjudicial.shared.discovery.ClientRegisteredEvent;
+import br.com.monitorjudicial.shared.lgpd.ClientAnonymizedEvent;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** UC03 — cadastro de clientes; também implementa o contrato público {@link ClientDirectory}. */
+/** UC03 — cadastro de clientes e direitos do titular (LGPD); implementa {@link ClientDirectory}. */
 @Service
 public class ClientService implements ClientDirectory {
 
@@ -31,11 +35,13 @@ public class ClientService implements ClientDirectory {
 
     private final ClientRepository clients;
     private final Auditor auditor;
+    private final ApplicationEventPublisher events;
     private final Clock clock;
 
-    public ClientService(ClientRepository clients, Auditor auditor, Clock clock) {
+    public ClientService(ClientRepository clients, Auditor auditor, ApplicationEventPublisher events, Clock clock) {
         this.clients = clients;
         this.auditor = auditor;
+        this.events = events;
         this.clock = clock;
     }
 
@@ -44,12 +50,15 @@ public class ClientService implements ClientDirectory {
         Document document = new Document(command.document());
         if (clients.existsByDocument(document)) {
             throw new ConflictException("document-already-registered",
-                    "Já existe cliente com o documento " + document.formatted() + ".");
+                    "Já existe cliente com o documento " + document.masked() + ".");
         }
         Client client = Client.register(command.name(), document, new Email(command.email()),
-                phoneOrNull(command.phone()), command.notifyEmail(), command.notifyWhatsapp(), clock.instant());
+                phoneOrNull(command.phone()), command.notifyEmail(), command.notifyWhatsapp(),
+                command.legalBasis(), command.privacyNoticeVersion(), clock.instant());
         clients.save(client);
-        auditor.record("CREATE", RESOURCE, client.id(), Map.of("document", document.masked()));
+        events.publishEvent(new ClientRegisteredEvent(client.id(), client.name(), client.createdAt()));
+        auditor.record("CREATE", RESOURCE, client.id(),
+                Map.of("document", document.masked(), "legalBasis", client.legalBasis().name()));
         return ClientView.of(client);
     }
 
@@ -57,9 +66,10 @@ public class ClientService implements ClientDirectory {
     public ClientView update(UUID id, ClientCommand command) {
         Client client = load(id);
         client.update(command.name(), new Email(command.email()), phoneOrNull(command.phone()),
-                command.notifyEmail(), command.notifyWhatsapp(), clock.instant());
+                command.notifyEmail(), command.notifyWhatsapp(), command.legalBasis(),
+                command.privacyNoticeVersion(), clock.instant());
         clients.save(client);
-        auditor.record("UPDATE", RESOURCE, id, Map.of());
+        auditor.record("UPDATE", RESOURCE, id, Map.of("legalBasis", client.legalBasis().name()));
         return ClientView.of(client);
     }
 
@@ -71,14 +81,39 @@ public class ClientService implements ClientDirectory {
         auditor.record("DEACTIVATE", RESOURCE, id, Map.of());
     }
 
-    @Transactional(readOnly = true)
+    /** Art. 18, IV LGPD: anonimiza dados pessoais do titular mantendo integridade histórica. */
+    @Transactional
+    public ClientView anonymize(UUID id) {
+        Client client = load(id);
+        Instant now = clock.instant();
+        client.anonymize(now);
+        clients.save(client);
+        events.publishEvent(new ClientAnonymizedEvent(id, now));
+        auditor.record("ANONYMIZE", RESOURCE, id, Map.of());
+        return ClientView.of(client);
+    }
+
+    /** Self-service do titular (CUSTOMER) para gerir opt-in/opt-out de canais de notificação. */
+    @Transactional
+    public ClientView updateNotificationPreferences(UUID clientId, boolean notifyEmail, boolean notifyWhatsapp) {
+        Client client = load(clientId);
+        client.updateNotificationPreferences(notifyEmail, notifyWhatsapp, clock.instant());
+        clients.save(client);
+        auditor.record("UPDATE_NOTIFICATION_PREFERENCES", RESOURCE, clientId,
+                Map.of("notifyEmail", notifyEmail, "notifyWhatsapp", notifyWhatsapp));
+        return ClientView.masked(client);
+    }
+
+    @Transactional
     public ClientView get(UUID id) {
-        return ClientView.of(load(id));
+        Client client = load(id);
+        auditor.record("VIEW_PII", RESOURCE, id, Map.of("document", client.maskedDocument()));
+        return ClientView.of(client);
     }
 
     @Transactional(readOnly = true)
     public PageResult<ClientView> search(String text, ClientStatus status, PageQuery page) {
-        return clients.search(text, status, page).map(ClientView::of);
+        return clients.search(text, status, page).map(ClientView::masked);
     }
 
     @Override

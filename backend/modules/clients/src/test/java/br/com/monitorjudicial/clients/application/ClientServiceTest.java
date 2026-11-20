@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import br.com.monitorjudicial.clients.domain.Client;
 import br.com.monitorjudicial.clients.domain.ClientStatus;
 import br.com.monitorjudicial.clients.domain.Document;
+import br.com.monitorjudicial.clients.domain.LegalBasis;
 import br.com.monitorjudicial.clients.domain.port.ClientRepository;
 import br.com.monitorjudicial.shared.application.PageQuery;
 import br.com.monitorjudicial.shared.application.PageResult;
@@ -19,6 +20,7 @@ import br.com.monitorjudicial.shared.audit.Auditor;
 import br.com.monitorjudicial.shared.domain.ConflictException;
 import br.com.monitorjudicial.shared.domain.Email;
 import br.com.monitorjudicial.shared.domain.ResourceNotFoundException;
+import br.com.monitorjudicial.shared.lgpd.ClientAnonymizedEvent;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -27,13 +29,15 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 
 class ClientServiceTest {
 
     private final ClientRepository repository = mock(ClientRepository.class);
     private final Auditor auditor = mock(Auditor.class);
+    private final ApplicationEventPublisher events = mock(ApplicationEventPublisher.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-23T10:00:00Z"), ZoneOffset.UTC);
-    private final ClientService service = new ClientService(repository, auditor, clock);
+    private final ClientService service = new ClientService(repository, auditor, events, clock);
 
     private final ClientCommand command = new ClientCommand("Horizonte", "11.222.333/0001-81",
             "juridico@horizonte.com.br", "11987654321", true, true);
@@ -42,11 +46,13 @@ class ClientServiceTest {
     void createsClientAndAuditsWithMaskedDocument() {
         ClientView view = service.create(command);
         assertThat(view.document()).isEqualTo("11.222.333/0001-81");
+        assertThat(view.documentMasked()).isEqualTo("11.***.***/0001-**");
+        assertThat(view.legalBasis()).isEqualTo(LegalBasis.CONTRACT_EXECUTION);
         assertThat(view.phone()).isEqualTo("+5511987654321");
         assertThat(view.status()).isEqualTo(ClientStatus.ACTIVE);
         verify(repository).save(any(Client.class));
         verify(auditor).record(eq("CREATE"), eq("client"), eq(view.id()),
-                eq(java.util.Map.of("document", "11.***.***/0001-**")));
+                eq(java.util.Map.of("document", "11.***.***/0001-**", "legalBasis", "CONTRACT_EXECUTION")));
     }
 
     @Test
@@ -87,12 +93,28 @@ class ClientServiceTest {
     }
 
     @Test
-    void searchMapsViews() {
+    void searchMapsViewsWithMaskedDocumentForMinimization() {
         Client existing = existing();
         when(repository.search("hor", null, PageQuery.of(0, 20)))
                 .thenReturn(PageResult.of(List.of(existing), 0, 20, 1));
-        assertThat(service.search("hor", null, PageQuery.of(0, 20)).content()).extracting(ClientView::name)
-                .containsExactly("Horizonte");
+        var page = service.search("hor", null, PageQuery.of(0, 20));
+        assertThat(page.content()).extracting(ClientView::name).containsExactly("Horizonte");
+        assertThat(page.content().getFirst().document()).isEqualTo("11.***.***/0001-**");
+    }
+
+    @Test
+    void anonymizesAndPublishesEventAndUpdatesPreferences() {
+        Client existing = existing();
+        when(repository.findById(existing.id())).thenReturn(Optional.of(existing));
+
+        ClientView prefs = service.updateNotificationPreferences(existing.id(), true, false);
+        assertThat(prefs.notifyEmail()).isTrue();
+        assertThat(prefs.notifyWhatsapp()).isFalse();
+
+        ClientView anonymized = service.anonymize(existing.id());
+        assertThat(anonymized.status()).isEqualTo(ClientStatus.ANONYMIZED);
+        verify(events).publishEvent(new ClientAnonymizedEvent(existing.id(), clock.instant()));
+        verify(auditor).record(eq("ANONYMIZE"), eq("client"), eq(existing.id()), anyMap());
     }
 
     private Client existing() {

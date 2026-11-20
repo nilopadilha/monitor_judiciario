@@ -7,11 +7,13 @@ import br.com.monitorjudicial.djen.api.DjenSearch;
 import br.com.monitorjudicial.djen.api.DjenTribunal;
 import br.com.monitorjudicial.djen.api.DjenUnavailableException;
 import feign.FeignException;
+import feign.codec.DecodeException;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -40,20 +42,36 @@ class DjenClientAdapter implements DjenClient {
 
     @Override
     public List<DjenCommunication> searchCommunications(DjenSearch search) {
+        int maxPages = search.maxPages() == null
+                ? properties.maxPages()
+                : Math.clamp(search.maxPages(), 1, properties.maxPages());
         List<DjenCommunication> result = new ArrayList<>();
-        for (int page = 1; page <= properties.maxPages(); page++) {
+        for (int page = 1; page <= maxPages; page++) {
             int current = page;
-            DjenDtos.CommunicationPage response = call("search", () -> feign.searchCommunications(
-                    search.processNumber(), search.courtCode(), iso(search.from()), iso(search.to()), current,
-                    properties.pageSize()));
-            List<DjenDtos.CommunicationItem> items = response == null ? List.of() : response.safeItems();
+            DjenDtos.CommunicationPage response;
+            try {
+                response = call("search", () -> feign.searchCommunications(
+                        search.processNumber(), search.courtCode(), iso(search.from()), iso(search.to()),
+                        search.oabNumber(), search.oabUf(), search.lawyerName(), search.partyName(),
+                        current, properties.pageSize()));
+            } catch (DjenUnavailableException e) {
+                if (page > 1 && e.getCause() instanceof FeignException fe && fe.status() == 429) {
+                    log.warn("Limite de requisições do DJEN atingido na página {}; retornando {} comunicações já coletadas.",
+                            page, result.size());
+                    return result;
+                }
+                throw e;
+            }
+            if (response == null) {
+                return result;
+            }
+            List<DjenDtos.CommunicationItem> items = response.safeItems();
             items.stream().map(mapper::toCommunication).forEach(result::add);
             if (items.size() < properties.pageSize() || (response.count() > 0 && result.size() >= response.count())) {
                 return result;
             }
         }
-        log.warn("Busca no DJEN truncada em {} páginas para o processo {}", properties.maxPages(),
-                search.processNumber());
+        log.warn("Busca no DJEN truncada em {} páginas (coletadas {} comunicações).", maxPages, result.size());
         return result;
     }
 
@@ -84,8 +102,9 @@ class DjenClientAdapter implements DjenClient {
         return groups.stream()
                 .filter(g -> g.instituicoes() != null)
                 .flatMap(g -> g.instituicoes().stream()
-                        .filter(i -> i.sigla() != null)
-                        .map(i -> new DjenTribunal(i.sigla().strip().toUpperCase(), i.nome(), g.uf())))
+                        .filter(i -> i != null && i.sigla() != null && !i.sigla().isBlank())
+                        .map(i -> new DjenTribunal(i.sigla().strip().toUpperCase(Locale.ROOT), i.nome(),
+                                g.uf() == null ? null : g.uf().strip().toUpperCase(Locale.ROOT))))
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparing(DjenTribunal::code))
                 .toList();
@@ -101,10 +120,20 @@ class DjenClientAdapter implements DjenClient {
             T result = request.get();
             meters.counter("djen.requests", "operation", operation, "outcome", "success").increment();
             return result;
+        } catch (DecodeException e) {
+            meters.counter("djen.requests", "operation", operation, "outcome", "decode_error").increment();
+            log.warn("Falha ao decodificar resposta do DJEN em '{}': {}", operation, rootMessage(e));
+            throw new DjenUnavailableException(
+                    "Falha na operação DJEN '" + operation + "': resposta inválida do DJEN (" + rootMessage(e) + ")", e);
         } catch (FeignException e) {
             boolean noResponse = e.status() < 0;
             meters.counter("djen.requests", "operation", operation, "outcome",
                     noResponse ? "unreachable" : String.valueOf(e.status())).increment();
+            if (e.status() == 403) {
+                meters.counter("djen.geo_blocked", "operation", operation).increment();
+                log.warn("DJEN retornou HTTP 403 em '{}': verifique se o servidor de saída possui IP brasileiro.",
+                        operation);
+            }
             String reason = noResponse
                     ? "DJEN inacessível (" + rootMessage(e) + ")"
                     : "DJEN respondeu HTTP " + e.status();

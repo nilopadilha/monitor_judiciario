@@ -37,9 +37,13 @@ class WhatsAppNotificationSender implements NotificationSender {
     public void send(OutgoingMessage message) {
         if (!properties.configured()) {
             throw new NotificationDeliveryException(
-                    "WhatsApp não configurado: defina NOTIFICATIONS_WHATSAPP_PHONE_NUMBER_ID e ACCESS_TOKEN.");
+                    "WhatsApp não configurado: defina WHATSAPP_PHONE_NUMBER_ID e WHATSAPP_ACCESS_TOKEN.");
         }
-        List<Map<String, String>> parameters = message.templateParameters().stream()
+        if (message == null || message.recipient() == null || message.recipient().isBlank()) {
+            throw new NotificationDeliveryException("Destinatário de WhatsApp ausente.");
+        }
+        List<String> rawParameters = message.templateParameters() == null ? List.of() : message.templateParameters();
+        List<Map<String, String>> parameters = rawParameters.stream()
                 .map(value -> Map.of("type", "text", "text", truncate(value)))
                 .toList();
         Map<String, Object> body = Map.of(

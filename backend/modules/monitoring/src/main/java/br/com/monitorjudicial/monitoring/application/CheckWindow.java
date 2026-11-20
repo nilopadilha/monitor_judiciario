@@ -8,6 +8,9 @@ import java.time.ZoneId;
 record CheckWindow(LocalDate from, LocalDate to) {
 
     static CheckWindow of(MonitoredProcess process, LocalDate today, ZoneId zone, int lookbackDays, int overlapDays) {
+        if (process.lastCheckedAt() == null && lookbackDays == 0) {
+            return new CheckWindow(null, today);
+        }
         LocalDate from = process.lastCheckedAt() != null
                 ? process.lastCheckedAt().atZone(zone).toLocalDate().minusDays(overlapDays)
                 : process.createdAt().atZone(zone).toLocalDate().minusDays(lookbackDays);

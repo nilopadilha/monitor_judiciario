@@ -13,6 +13,8 @@ import static org.mockito.Mockito.when;
 
 import br.com.monitorjudicial.clients.api.ClientDirectory;
 import br.com.monitorjudicial.clients.api.ClientSummary;
+import br.com.monitorjudicial.lawyers.api.LawyerDirectory;
+import br.com.monitorjudicial.lawyers.api.LawyerSummary;
 import br.com.monitorjudicial.monitoring.api.ProcessEvolutionDetected;
 import br.com.monitorjudicial.notifications.domain.Channel;
 import br.com.monitorjudicial.notifications.domain.Notification;
@@ -49,6 +51,7 @@ class NotificationServiceTest {
     private final NotificationSender email = mock(NotificationSender.class);
     private final NotificationSender whatsapp = mock(NotificationSender.class);
     private final ClientDirectory clients = mock(ClientDirectory.class);
+    private final LawyerDirectory lawyers = mock(LawyerDirectory.class);
     private final ProcessDirectory processes = mock(ProcessDirectory.class);
     private final SimpleMeterRegistry meters = new SimpleMeterRegistry();
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-23T09:00:00Z"), ZoneOffset.UTC);
@@ -67,7 +70,7 @@ class NotificationServiceTest {
     void setUp() {
         when(email.channel()).thenReturn(Channel.EMAIL);
         when(whatsapp.channel()).thenReturn(Channel.WHATSAPP);
-        service = new NotificationService(repository, List.of(email, whatsapp), clients, processes,
+        service = new NotificationService(repository, List.of(email, whatsapp), clients, lawyers, processes,
                 new NotificationMessageComposer(), mock(Auditor.class), meters, clock);
     }
 
@@ -135,7 +138,7 @@ class NotificationServiceTest {
 
     @Test
     void channelWithoutProviderFails() {
-        service = new NotificationService(repository, List.of(email), clients, processes,
+        service = new NotificationService(repository, List.of(email), clients, lawyers, processes,
                 new NotificationMessageComposer(), mock(Auditor.class), meters, clock);
         client(true, false, true, "+5511987654321");
         assertThat(service.handle(event)).singleElement().extracting(NotificationView::status)
@@ -159,5 +162,44 @@ class NotificationServiceTest {
         assertThat(filter.getValue().clientId()).isEqualTo(clientId);
         assertThat(page.content().getFirst().processNumber()).isEqualTo("1001234-83.2026.8.26.0100");
         assertThat(page.content().getFirst().clientName()).isNull();
+    }
+
+    @Test
+    void confidentialProcessRedactsContentInEmailAndWhatsapp() {
+        client(true, true, true, "+5511987654321");
+        ProcessEvolutionDetected secret = new ProcessEvolutionDetected(UUID.randomUUID(), processId, clientId,
+                "1001234-83.2026.8.26.0100", "TJSP", UUID.randomUUID(), LocalDate.of(2026, 10, 22), "SENTENCA",
+                "Sentença", "Dados sensíveis do menor de idade.", clock.instant(), true);
+
+        service.handle(secret);
+
+        var emailCaptor = ArgumentCaptor.forClass(OutgoingMessage.class);
+        verify(email).send(emailCaptor.capture());
+        assertThat(emailCaptor.getValue().subject()).contains("sigiloso");
+        assertThat(emailCaptor.getValue().body()).contains("segredo de justiça")
+                .doesNotContain("menor de idade");
+
+        var waCaptor = ArgumentCaptor.forClass(OutgoingMessage.class);
+        verify(whatsapp).send(waCaptor.capture());
+        assertThat(waCaptor.getValue().templateParameters()).contains("Sigiloso")
+                .noneMatch(p -> p.contains("menor de idade"));
+    }
+
+    @Test
+    void notifiesResponsibleLawyerDirectlyWhenAssigned() {
+        UUID lawyerId = UUID.randomUUID();
+        client(true, true, false, null);
+        when(lawyers.findById(lawyerId)).thenReturn(Optional.of(new LawyerSummary(lawyerId, "Dr. Carlos", "123456",
+                "SP", "CIVEL", "carlos@escritorio.com", null, null, true, false, true)));
+        ProcessEvolutionDetected withLawyer = new ProcessEvolutionDetected(UUID.randomUUID(), processId, clientId,
+                lawyerId, "1001234-83.2026.8.26.0100", "TJSP", UUID.randomUUID(), LocalDate.of(2026, 10, 22),
+                "INTIMACAO", "Intimação", "Manifeste-se em 15 dias.", clock.instant(), false);
+
+        service.handle(withLawyer);
+
+        var captor = ArgumentCaptor.forClass(OutgoingMessage.class);
+        verify(email, times(2)).send(captor.capture());
+        assertThat(captor.getAllValues()).extracting(OutgoingMessage::recipient)
+                .containsExactly("juridico@horizonte.com.br", "carlos@escritorio.com");
     }
 }

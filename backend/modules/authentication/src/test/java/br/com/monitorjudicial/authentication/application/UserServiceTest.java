@@ -4,10 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import br.com.monitorjudicial.authentication.domain.User;
 import br.com.monitorjudicial.authentication.domain.port.PasswordHasher;
+import br.com.monitorjudicial.authentication.domain.port.RefreshTokenRepository;
 import br.com.monitorjudicial.authentication.domain.port.UserRepository;
 import br.com.monitorjudicial.clients.api.ClientDirectory;
 import br.com.monitorjudicial.clients.api.ClientSummary;
@@ -17,6 +19,7 @@ import br.com.monitorjudicial.shared.audit.Auditor;
 import br.com.monitorjudicial.shared.domain.ConflictException;
 import br.com.monitorjudicial.shared.domain.Email;
 import br.com.monitorjudicial.shared.domain.ResourceNotFoundException;
+import br.com.monitorjudicial.shared.domain.UnauthorizedException;
 import br.com.monitorjudicial.shared.security.Role;
 import java.time.Clock;
 import java.time.Instant;
@@ -31,10 +34,11 @@ import org.junit.jupiter.params.provider.ValueSource;
 class UserServiceTest {
 
     private final UserRepository users = mock(UserRepository.class);
+    private final RefreshTokenRepository refreshTokens = mock(RefreshTokenRepository.class);
     private final PasswordHasher hasher = mock(PasswordHasher.class);
     private final ClientDirectory clients = mock(ClientDirectory.class);
     private final Clock clock = Clock.fixed(Instant.parse("2026-10-23T10:00:00Z"), ZoneOffset.UTC);
-    private final UserService service = new UserService(users, hasher, clients, mock(Auditor.class), clock);
+    private final UserService service = new UserService(users, refreshTokens, hasher, clients, mock(Auditor.class), clock);
 
     @Test
     void createsCustomerLinkedToExistingClient() {
@@ -79,5 +83,41 @@ class UserServiceTest {
         assertThat(service.get(user.id()).email()).isEqualTo("a@x.com");
         assertThat(service.list(PageQuery.of(0, 20)).totalElements()).isEqualTo(1);
         assertThatThrownBy(() -> service.get(UUID.randomUUID())).isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    void setActivePreventsSelfDeactivationAndRevokesTokens() {
+        User user = User.create("A", new Email("a@x.com"), "h", Role.MANAGER, null, clock.instant());
+        when(users.findById(user.id())).thenReturn(Optional.of(user));
+        when(users.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        assertThatThrownBy(() -> service.setActive(user.id(), false, user.id()))
+                .extracting("code").isEqualTo("cannot-deactivate-self");
+
+        UserView deactivated = service.setActive(user.id(), false, UUID.randomUUID());
+        assertThat(deactivated.active()).isFalse();
+        verify(refreshTokens).revokeAllForUser(user.id(), clock.instant());
+
+        UserView reactivated = service.setActive(user.id(), true, UUID.randomUUID());
+        assertThat(reactivated.active()).isTrue();
+    }
+
+    @Test
+    void changePasswordValidatesCurrentAndRevokesTokens() {
+        User user = User.create("A", new Email("a@x.com"), "old-hash", Role.ADMIN, null, clock.instant());
+        when(users.findById(user.id())).thenReturn(Optional.of(user));
+        when(hasher.matches("errada", "old-hash")).thenReturn(false);
+        when(hasher.matches("atual-forte-123", "old-hash")).thenReturn(true);
+        when(hasher.matches("nova-forte-456", "old-hash")).thenReturn(false);
+        when(hasher.hash("nova-forte-456")).thenReturn("new-hash");
+        when(users.save(any())).thenAnswer(i -> i.getArgument(0));
+
+        assertThatThrownBy(() -> service.changePassword(user.id(), "errada", "nova-forte-456"))
+                .isInstanceOf(UnauthorizedException.class);
+        assertThatThrownBy(() -> service.changePassword(user.id(), "atual-forte-123", "atual-forte-123"))
+                .extracting("code").isEqualTo("password-unchanged");
+
+        service.changePassword(user.id(), "atual-forte-123", "nova-forte-456");
+        verify(refreshTokens).revokeAllForUser(user.id(), clock.instant());
     }
 }

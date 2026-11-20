@@ -4,7 +4,7 @@ import axios, { type AxiosError, type InternalAxiosRequestConfig } from 'axios'
  * Cliente HTTP da API. O módulo de autenticação registra os ganchos via {@link configureAuth}, evitando dependência
  * circular entre o cliente e a store.
  */
-export const http = axios.create({ baseURL: '/api/v1', timeout: 30_000 })
+export const http = axios.create({ baseURL: '/api/v1', timeout: 30_000, withCredentials: true })
 
 interface AuthHooks {
   accessToken: () => string | null

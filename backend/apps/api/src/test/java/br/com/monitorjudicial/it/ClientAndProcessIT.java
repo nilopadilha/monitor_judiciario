@@ -79,8 +79,18 @@ class ClientAndProcessIT extends IntegrationTest {
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.containsString("dígito verificador")));
 
-        String federal = "0000001-" + federalDigits() + ".2026.4.01.3400";
+        String federal = "0000001-" + digitsFor("4", "01", "3400") + ".2026.4.01.3400";
         mvc.perform(jsonBody(auth(post("/api/v1/processes"), admin), Map.of("clientId", clientId, "number", federal)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.courtCode").value("TRF1"));
+
+        String labor = "0000001-" + digitsFor("5", "02", "0001") + ".2026.5.02.0001";
+        mvc.perform(jsonBody(auth(post("/api/v1/processes"), admin), Map.of("clientId", clientId, "number", labor)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.courtCode").value("TRT2"));
+
+        String electoral = "0000001-" + digitsFor("6", "01", "0001") + ".2026.6.01.0001";
+        mvc.perform(jsonBody(auth(post("/api/v1/processes"), admin), Map.of("clientId", clientId, "number", electoral)))
                 .andExpect(status().isUnprocessableEntity())
                 .andExpect(jsonPath("$.type").value("https://monitorjudicial.app/problems/unsupported-court"));
 
@@ -139,17 +149,23 @@ class ClientAndProcessIT extends IntegrationTest {
         DJEN.stubFor(com.github.tomakehurst.wiremock.client.WireMock.get("/api/v1/comunicacao/tribunal")
                 .willReturn(com.github.tomakehurst.wiremock.client.WireMock.okJson("""
                         [{"uf":"SP","instituicoes":[{"sigla":"TJSP","nome":"Tribunal de Justiça de São Paulo"},
-                                                     {"sigla":"TRT2","nome":"TRT 2ª Região"}]}]
+                                                     {"sigla":"TRT2","nome":"Tribunal Regional do Trabalho da 2ª Região"},
+                                                     {"sigla":"TSE","nome":"Tribunal Superior Eleitoral"}]}]
                         """)));
         mvc.perform(auth(post("/api/v1/tribunal-synchronizations"), admin))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.received").value(1))
+                .andExpect(jsonPath("$.received").value(2))
                 .andExpect(jsonPath("$.created").value(0));
-        mvc.perform(auth(get("/api/v1/tribunals").param("active", "true"), admin)).andExpect(status().isOk());
+
+        DJEN.stubFor(com.github.tomakehurst.wiremock.client.WireMock.get("/api/v1/comunicacao/tribunal")
+                .willReturn(com.github.tomakehurst.wiremock.client.WireMock.aResponse().withStatus(503)));
+        mvc.perform(auth(post("/api/v1/tribunal-synchronizations"), admin))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.type").value("https://monitorjudicial.app/problems/djen-unavailable"));
     }
 
-    private static String federalDigits() {
-        int dd = 98 - new java.math.BigInteger("0000001" + "2026" + "4" + "01" + "3400" + "00")
+    private static String digitsFor(String segment, String tr, String origin) {
+        int dd = 98 - new java.math.BigInteger("0000001" + "2026" + segment + tr + origin + "00")
                 .mod(java.math.BigInteger.valueOf(97)).intValue();
         return String.format("%02d", dd);
     }

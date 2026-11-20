@@ -16,14 +16,32 @@ import { useAuthStore } from './auth'
 const pair = (n: number) => ({ accessToken: `a${n}`, refreshToken: `r${n}`, expiresInSeconds: 900, tokenType: 'Bearer' as const })
 const admin = { id: '1', name: 'Admin', email: 'a@x.com', role: 'ADMIN' as const, active: true }
 
+function memoryStorage(): Storage {
+  const map = new Map<string, string>()
+  return {
+    get length() {
+      return map.size
+    },
+    clear: () => map.clear(),
+    getItem: (key: string) => map.get(key) ?? null,
+    key: (index: number) => Array.from(map.keys())[index] ?? null,
+    removeItem: (key: string) => {
+      map.delete(key)
+    },
+    setItem: (key: string, value: string) => {
+      map.set(key, String(value))
+    },
+  }
+}
+
 describe('auth store', () => {
   beforeEach(() => {
-    localStorage.clear()
+    vi.stubGlobal('localStorage', memoryStorage())
     vi.resetAllMocks()
     setActivePinia(createPinia())
   })
 
-  it('logs in keeping access token in memory and refresh token in storage', async () => {
+  it('logs in keeping access token in memory and never storing tokens in localStorage', async () => {
     vi.mocked(authApi.login).mockResolvedValue(pair(1))
     vi.mocked(authApi.me).mockResolvedValue(admin)
     const auth = useAuthStore()
@@ -33,11 +51,12 @@ describe('auth store', () => {
     expect(auth.isAuthenticated).toBe(true)
     expect(auth.isStaff).toBe(true)
     expect(auth.accessToken).toBe('a1')
-    expect(localStorage.getItem('mj.refresh')).toBe('r1')
+    expect(localStorage.getItem('mj.refresh')).toBeNull()
+    expect(localStorage.getItem('mj.session')).toBe('1')
   })
 
-  it('restores the session once from the refresh token', async () => {
-    localStorage.setItem('mj.refresh', 'r0')
+  it('restores the session once via HttpOnly refresh cookie when session hint is present', async () => {
+    localStorage.setItem('mj.session', '1')
     vi.mocked(authApi.refresh).mockResolvedValue(pair(2))
     vi.mocked(authApi.me).mockResolvedValue({ ...admin, role: 'CUSTOMER', clientId: 'c' })
     const auth = useAuthStore()
@@ -45,21 +64,20 @@ describe('auth store', () => {
     await Promise.all([auth.init(), auth.init()])
 
     expect(authApi.refresh).toHaveBeenCalledTimes(1)
-    expect(authApi.refresh).toHaveBeenCalledWith('r0')
     expect(auth.isStaff).toBe(false)
-    expect(localStorage.getItem('mj.refresh')).toBe('r2')
+    expect(localStorage.getItem('mj.session')).toBe('1')
   })
 
-  it('clears an invalid stored session', async () => {
-    localStorage.setItem('mj.refresh', 'revogado')
+  it('clears an invalid stored session hint', async () => {
+    localStorage.setItem('mj.session', '1')
     vi.mocked(authApi.refresh).mockRejectedValue(new Error('401'))
     const auth = useAuthStore()
     await auth.init()
     expect(auth.isAuthenticated).toBe(false)
-    expect(localStorage.getItem('mj.refresh')).toBeNull()
+    expect(localStorage.getItem('mj.session')).toBeNull()
   })
 
-  it('logs out revoking the refresh token', async () => {
+  it('logs out revoking the HttpOnly cookie session', async () => {
     vi.mocked(authApi.login).mockResolvedValue(pair(3))
     vi.mocked(authApi.me).mockResolvedValue(admin)
     vi.mocked(authApi.revoke).mockRejectedValue(new Error('offline'))
@@ -68,8 +86,8 @@ describe('auth store', () => {
 
     await auth.logout()
 
-    expect(authApi.revoke).toHaveBeenCalledWith('r3')
+    expect(authApi.revoke).toHaveBeenCalledTimes(1)
     expect(auth.isAuthenticated).toBe(false)
-    expect(localStorage.getItem('mj.refresh')).toBeNull()
+    expect(localStorage.getItem('mj.session')).toBeNull()
   })
 })

@@ -47,6 +47,14 @@ public final class User {
         return new User(Ids.newId(), name, email, passwordHash, role, clientId, true, now, now);
     }
 
+    public User withActive(boolean nextActive, Instant now) {
+        return new User(id, name, email, passwordHash, role, clientId, nextActive, createdAt, now);
+    }
+
+    public User withPasswordHash(String nextPasswordHash, Instant now) {
+        return new User(id, name, email, nextPasswordHash, role, clientId, active, createdAt, now);
+    }
+
     public UUID id() {
         return id;
     }

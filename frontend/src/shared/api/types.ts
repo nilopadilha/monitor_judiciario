@@ -26,17 +26,23 @@ export interface User {
   active: boolean
 }
 
-export type ClientStatus = 'ACTIVE' | 'INACTIVE'
+export type ClientStatus = 'ACTIVE' | 'INACTIVE' | 'ANONYMIZED'
+export type LegalBasis = 'CONTRACT_EXECUTION' | 'LEGITIMATE_INTEREST' | 'CONSENT'
 
 export interface Client {
   id: string
   name: string
   document: string
+  documentMasked?: string
   email: string
   phone?: string
   status: ClientStatus
   notifyEmail: boolean
   notifyWhatsapp: boolean
+  legalBasis?: LegalBasis
+  privacyNoticeVersion?: string
+  consentRecordedAt?: string
+  anonymizedAt?: string
   createdAt: string
 }
 
@@ -47,6 +53,8 @@ export interface ClientInput {
   phone?: string
   notifyEmail: boolean
   notifyWhatsapp: boolean
+  legalBasis?: LegalBasis
+  privacyNoticeVersion?: string
 }
 
 export type ProcessStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
@@ -56,16 +64,22 @@ export interface Process {
   id: string
   clientId: string
   clientName?: string
+  lawyerId?: string
+  lawyerName?: string
+  practiceArea?: string
   number: string
   courtCode: string
   subject?: string
   status: ProcessStatus
+  confidential?: boolean
   situation: Situation
   unreadPublications: number
   lastError?: string
   lastCheckedAt?: string
   createdAt: string
 }
+
+export type PublicationSource = 'DJEN' | 'DATAJUD' | 'PJE'
 
 export interface Publication {
   id: string
@@ -78,7 +92,7 @@ export interface Publication {
   organName?: string
   content: string
   link?: string
-  source: 'DJEN' | 'PJE'
+  source: PublicationSource
   read: boolean
   readAt?: string
 }
@@ -90,7 +104,7 @@ export interface Movement {
   typeLabel: string
   description: string
   movementDate: string
-  source: 'DJEN' | 'PJE'
+  source: PublicationSource
 }
 
 export type Channel = 'EMAIL' | 'WHATSAPP'
@@ -159,6 +173,134 @@ export interface Tribunal {
   name: string
   state: string
   active: boolean
+}
+
+export interface SynchronizationResult {
+  received: number
+  created: number
+  updated: number
+}
+
+export interface CreateUserInput {
+  name: string
+  email: string
+  password: string
+  role: Role
+  clientId?: string
+}
+
+export interface AuditLog {
+  id: string
+  actorId?: string
+  actorEmail?: string
+  action: string
+  resourceType: string
+  resourceId: string
+  details?: Record<string, unknown>
+  correlationId?: string
+  occurredAt: string
+}
+
+export interface ClientDataExport {
+  exportedAt: string
+  client: Record<string, unknown>
+  processes: Record<string, unknown>[]
+  notifications: Record<string, unknown>[]
+}
+
+export type PracticeArea =
+  | 'CIVEL'
+  | 'TRABALHISTA'
+  | 'TRIBUTARIO'
+  | 'FAMILIA'
+  | 'CRIMINAL'
+  | 'PREVIDENCIARIO'
+  | 'EMPRESARIAL'
+  | 'CONSUMIDOR'
+  | 'ADMINISTRATIVO'
+  | 'OUTROS'
+
+export interface Lawyer {
+  id: string
+  name: string
+  oabNumber: string
+  oabUf: string
+  oabFormatted: string
+  practiceArea: PracticeArea
+  practiceAreaLabel: string
+  email: string
+  phone?: string
+  userId?: string
+  notifyEmail: boolean
+  notifyWhatsapp: boolean
+  active: boolean
+  createdAt: string
+}
+
+export interface LawyerInput {
+  name: string
+  oabNumber: string
+  oabUf: string
+  practiceArea: PracticeArea
+  email: string
+  phone?: string
+  userId?: string
+  notifyEmail: boolean
+  notifyWhatsapp: boolean
+}
+
+export interface DiscoveryResult {
+  communicationsFound: number
+  processesCreated: number
+  processesLinked: number
+  alreadyRegistered: number
+  processNumbers: string[]
+  unmatchedProcessNumbers: string[]
+}
+
+export type DeadlineStatus = 'OPEN' | 'COMPLETED' | 'CANCELED'
+export type DeadlineUrgency = 'OVERDUE' | 'TODAY' | 'SOON' | 'UPCOMING' | 'NORMAL' | 'CLOSED'
+
+export interface Deadline {
+  id: string
+  processId: string
+  processNumber: string
+  courtCode: string
+  clientName: string
+  publicationId?: string
+  lawyerId?: string
+  lawyerName?: string
+  title: string
+  description?: string
+  startDate: string
+  dueDate: string
+  daysCount?: number
+  businessDays: boolean
+  status: DeadlineStatus
+  urgency: DeadlineUrgency
+  daysRemaining: number
+  autoDetected: boolean
+  completedAt?: string
+  createdAt: string
+}
+
+export interface DeadlineSummary {
+  overdue: number
+  dueToday: number
+  dueIn3Days: number
+  dueIn7Days: number
+  openTotal: number
+}
+
+export interface CreateDeadlineInput {
+  processId: string
+  lawyerId?: string
+  title: string
+  description?: string
+  startDate?: string
+  dueDate?: string
+  daysCount?: number
+  businessDays?: boolean
 }
 
 /** RFC 9457 Problem Details */

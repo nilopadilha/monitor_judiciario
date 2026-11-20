@@ -25,20 +25,22 @@ class TribunalServiceTest {
     private final TribunalService service = new TribunalService(repository, djen, mock(Auditor.class));
 
     @Test
-    void synchronizesOnlyStateCourtsCreatingAndRenaming() {
+    void synchronizesSupportedCourtsCreatingAndRenaming() {
         Tribunal existing = Tribunal.register("TJSP", "Nome antigo", "SP");
         when(repository.findByCode("TJSP")).thenReturn(Optional.of(existing));
         when(repository.findByCode("TJRJ")).thenReturn(Optional.empty());
+        when(repository.findByCode("TRF1")).thenReturn(Optional.empty());
         when(djen.getTribunals()).thenReturn(List.of(
                 new DjenTribunal("TJSP", "Tribunal de Justiça de São Paulo", "SP"),
                 new DjenTribunal("TJRJ", "Tribunal de Justiça do Rio de Janeiro", "RJ"),
-                new DjenTribunal("TRF1", "Tribunal Regional Federal da 1ª Região", "DF")));
+                new DjenTribunal("TRF1", "Tribunal Regional Federal da 1ª Região", "DF"),
+                new DjenTribunal("TSE", "Tribunal Superior Eleitoral", "DF")));
 
         SynchronizationResult result = service.synchronize();
 
-        assertThat(result).isEqualTo(new SynchronizationResult(2, 1, 1));
+        assertThat(result).isEqualTo(new SynchronizationResult(3, 2, 1));
         assertThat(existing.name()).isEqualTo("Tribunal de Justiça de São Paulo");
-        verify(repository, times(2)).save(any());
+        verify(repository, times(3)).save(any());
     }
 
     @Test

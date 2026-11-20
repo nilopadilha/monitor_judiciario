@@ -4,22 +4,30 @@ import Button from '@/shared/ui/Button.vue'
 import Field from '@/shared/ui/Field.vue'
 import Input from '@/shared/ui/Input.vue'
 import ProblemAlert from '@/shared/ui/ProblemAlert.vue'
-import { clientsApi, processesApi } from '@/shared/api/endpoints'
+import { clientsApi, lawyersApi, processesApi } from '@/shared/api/endpoints'
 import { toProblem } from '@/shared/api/problem'
 import { maskProcessNumber } from '@/shared/lib/format'
-import type { Client, Problem, Process } from '@/shared/api/types'
+import type { Client, Lawyer, Problem, Process } from '@/shared/api/types'
 
 const emit = defineEmits<{ created: [process: Process] }>()
 
 const clients = ref<Client[]>([])
+const lawyers = ref<Lawyer[]>([])
 const clientId = ref('')
+const lawyerId = ref('')
 const number = ref('')
 const subject = ref('')
+const confidential = ref(false)
 const saving = ref(false)
 const problem = ref<Problem | null>(null)
 
 onMounted(async () => {
-  clients.value = (await clientsApi.list({ status: 'ACTIVE', size: 100 })).content
+  const [cPage, lPage] = await Promise.all([
+    clientsApi.list({ status: 'ACTIVE', size: 100 }),
+    lawyersApi.list({ active: true, size: 100 }),
+  ])
+  clients.value = cPage.content
+  lawyers.value = lPage.content
   clientId.value = clients.value[0]?.id ?? ''
 })
 
@@ -31,7 +39,13 @@ async function submit() {
   saving.value = true
   problem.value = null
   try {
-    const created = await processesApi.create({ clientId: clientId.value, number: number.value, subject: subject.value || undefined })
+    const created = await processesApi.create({
+      clientId: clientId.value,
+      lawyerId: lawyerId.value || undefined,
+      number: number.value,
+      subject: subject.value || undefined,
+      confidential: confidential.value,
+    })
     emit('created', created)
   } catch (error) {
     problem.value = toProblem(error)
@@ -48,6 +62,12 @@ async function submit() {
         <option v-for="c in clients" :key="c.id" :value="c.id">{{ c.name }}</option>
       </select>
     </Field>
+    <Field id="lawyer" label="Advogado responsável (opcional)">
+      <select id="lawyer" v-model="lawyerId" class="h-11 rounded-md border border-input bg-card px-3">
+        <option value="">Sem advogado atribuído</option>
+        <option v-for="l in lawyers" :key="l.id" :value="l.id">{{ l.name }} ({{ l.oabFormatted }} · {{ l.practiceAreaLabel }})</option>
+      </select>
+    </Field>
     <Field id="number" label="Número CNJ" hint="O tribunal é identificado pelo próprio número.">
       <Input
         id="number"
@@ -62,6 +82,10 @@ async function submit() {
     <Field id="subject" label="Assunto (opcional)">
       <Input id="subject" v-model="subject" maxlength="300" />
     </Field>
+    <label class="flex min-h-11 items-center gap-2 text-[14px]">
+      <input v-model="confidential" type="checkbox" class="size-4 accent-[var(--brand)]" />
+      Segredo de justiça (oculta trechos do teor em e-mail e WhatsApp)
+    </label>
     <ProblemAlert :problem="problem" />
     <Button type="submit" :loading="saving" :disabled="!clientId">Cadastrar processo</Button>
   </form>

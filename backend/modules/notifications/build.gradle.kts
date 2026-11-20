@@ -4,6 +4,7 @@ plugins {
 
 dependencies {
     implementation(project(":modules:clients"))
+    implementation(project(":modules:lawyers"))
     implementation(project(":modules:processes"))
     implementation(project(":modules:monitoring"))
     implementation("org.springframework.boot:spring-boot-starter-amqp")

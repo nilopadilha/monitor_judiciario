@@ -59,6 +59,9 @@ class SendersTest {
         server.expect(requestTo("https://graph.facebook.com/v21.0/1/messages")).andRespond(withServerError());
         var sender = new WhatsAppNotificationSender(new WhatsAppProperties(null, null, "1", "t", null, null), builder);
         assertThatThrownBy(() -> sender.send(whatsappMessage)).hasMessageContaining("HTTP 500");
+        assertThatThrownBy(() -> sender.send(new OutgoingMessage(Channel.WHATSAPP, " ", "s", "b", null)))
+                .isInstanceOf(NotificationDeliveryException.class)
+                .hasMessageContaining("Destinatário");
     }
 
     @Test

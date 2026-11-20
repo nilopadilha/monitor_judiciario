@@ -13,7 +13,7 @@ public record MonitoringProperties(int maxConcurrency, int initialLookbackDays, 
 
     public MonitoringProperties {
         maxConcurrency = maxConcurrency <= 0 ? 8 : maxConcurrency;
-        initialLookbackDays = initialLookbackDays <= 0 ? 30 : initialLookbackDays;
+        initialLookbackDays = initialLookbackDays < 0 ? 3650 : initialLookbackDays;
         overlapDays = overlapDays < 0 ? 1 : overlapDays;
         zone = zone == null ? ZoneId.of("America/Sao_Paulo") : zone;
     }

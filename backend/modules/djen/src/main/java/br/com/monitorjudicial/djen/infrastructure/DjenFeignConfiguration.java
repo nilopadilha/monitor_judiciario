@@ -6,16 +6,22 @@ import feign.RequestInterceptor;
 import feign.RetryableException;
 import feign.Retryer;
 import feign.codec.ErrorDecoder;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Collection;
-import java.util.Date;
 import java.util.concurrent.TimeUnit;
 import org.springframework.context.annotation.Bean;
 
 /**
  * Configuração do cliente DJEN (não é {@code @Configuration} para não vazar para outros Feign clients).
- * 429 e 5xx viram {@link RetryableException}; {@code Retry-After} é respeitado.
+ * 429 e 5xx viram {@link RetryableException}; {@code Retry-After} é respeitado com teto de segurança.
  */
 class DjenFeignConfiguration {
+
+    private static final long MAX_RETRY_AFTER_SECONDS = 60L;
 
     @Bean
     Request.Options djenRequestOptions(DjenProperties properties) {
@@ -50,14 +56,30 @@ class DjenFeignConfiguration {
         };
     }
 
-    private static Long retryAfter(Collection<String> values) {
+    static Long retryAfter(Collection<String> values) {
         if (values == null || values.isEmpty()) {
             return null;
         }
+        String raw = values.iterator().next();
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String trimmed = raw.trim();
+        Instant now = Instant.now();
         try {
-            long seconds = Long.parseLong(values.iterator().next().trim());
-            return new Date(System.currentTimeMillis() + seconds * 1000).getTime();
-        } catch (NumberFormatException e) {
+            long seconds = Math.clamp(Long.parseLong(trimmed), 0L, MAX_RETRY_AFTER_SECONDS);
+            return now.plusSeconds(seconds).toEpochMilli();
+        } catch (NumberFormatException ignored) {
+            return parseHttpDate(trimmed, now);
+        }
+    }
+
+    private static Long parseHttpDate(String value, Instant now) {
+        try {
+            Instant target = ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant();
+            long seconds = Math.clamp(Duration.between(now, target).getSeconds(), 0L, MAX_RETRY_AFTER_SECONDS);
+            return now.plusSeconds(seconds).toEpochMilli();
+        } catch (DateTimeParseException ignored) {
             return null;
         }
     }

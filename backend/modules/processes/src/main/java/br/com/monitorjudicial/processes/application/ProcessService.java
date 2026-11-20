@@ -2,6 +2,8 @@ package br.com.monitorjudicial.processes.application;
 
 import br.com.monitorjudicial.clients.api.ClientDirectory;
 import br.com.monitorjudicial.clients.api.ClientSummary;
+import br.com.monitorjudicial.lawyers.api.LawyerDirectory;
+import br.com.monitorjudicial.lawyers.api.LawyerSummary;
 import br.com.monitorjudicial.processes.api.MonitoredProcess;
 import br.com.monitorjudicial.processes.api.ProcessDirectory;
 import br.com.monitorjudicial.processes.api.ProcessMonitoringInsights;
@@ -42,15 +44,17 @@ public class ProcessService implements ProcessDirectory {
 
     private final ProcessRepository processes;
     private final ClientDirectory clients;
+    private final LawyerDirectory lawyers;
     private final TribunalDirectory tribunals;
     private final ProcessMonitoringInsights insights;
     private final Auditor auditor;
     private final Clock clock;
 
-    public ProcessService(ProcessRepository processes, ClientDirectory clients, TribunalDirectory tribunals,
-            ProcessMonitoringInsights insights, Auditor auditor, Clock clock) {
+    public ProcessService(ProcessRepository processes, ClientDirectory clients, LawyerDirectory lawyers,
+            TribunalDirectory tribunals, ProcessMonitoringInsights insights, Auditor auditor, Clock clock) {
         this.processes = processes;
         this.clients = clients;
+        this.lawyers = lawyers;
         this.tribunals = tribunals;
         this.insights = insights;
         this.auditor = auditor;
@@ -68,6 +72,10 @@ public class ProcessService implements ProcessDirectory {
             throw new BusinessRuleViolationException("client-inactive",
                     "Não é possível cadastrar processos para cliente inativo.");
         }
+        LawyerSummary lawyer = resolveLawyer(command.lawyerId());
+        String practiceArea = command.practiceArea() != null && !command.practiceArea().isBlank()
+                ? command.practiceArea()
+                : (lawyer == null ? null : lawyer.practiceArea());
         boolean courtActive = tribunals.findByCode(courtCode).map(TribunalSummary::active).orElse(false);
         if (!courtActive) {
             throw new BusinessRuleViolationException("court-not-monitored",
@@ -77,17 +85,28 @@ public class ProcessService implements ProcessDirectory {
             throw new ConflictException("process-already-registered",
                     "O processo " + number.formatted() + " já está cadastrado.");
         }
-        Process process = processes.save(Process.register(client.id(), number, command.subject(), clock.instant()));
-        auditor.record("CREATE", RESOURCE, process.id(), Map.of("number", number.formatted(), "court", courtCode));
-        return toView(process, client.name(), ProcessMonitoringStatus.NONE);
+        Process process = processes.save(Process.register(client.id(), lawyer == null ? null : lawyer.id(),
+                practiceArea, number, command.subject(), command.confidential(), clock.instant()));
+        auditor.record("CREATE", RESOURCE, process.id(),
+                Map.of("number", number.formatted(), "court", courtCode, "confidential", process.confidential()));
+        return toView(process, client.name(), lawyer == null ? null : lawyer.name(), ProcessMonitoringStatus.NONE);
     }
 
     @Transactional
     public ProcessView update(UUID id, String subject, ProcessStatus status) {
+        return update(id, subject, status, null, null, null);
+    }
+
+    @Transactional
+    public ProcessView update(UUID id, String subject, ProcessStatus status, Boolean confidential, UUID lawyerId,
+            String practiceArea) {
         Process process = load(id);
-        process.update(subject, status, clock.instant());
+        boolean nextConfidential = confidential == null ? process.confidential() : confidential;
+        UUID nextLawyerId = lawyerId != null ? resolveLawyer(lawyerId).id() : process.lawyerId().orElse(null);
+        String nextArea = practiceArea != null ? practiceArea : process.practiceArea().orElse(null);
+        process.update(subject, status, nextConfidential, nextLawyerId, nextArea, clock.instant());
         processes.save(process);
-        auditor.record("UPDATE", RESOURCE, id, Map.of("status", status.name()));
+        auditor.record("UPDATE", RESOURCE, id, Map.of("status", status.name(), "confidential", nextConfidential));
         return enrich(List.of(process)).getFirst();
     }
 
@@ -124,7 +143,8 @@ public class ProcessService implements ProcessDirectory {
             status = ProcessStatus.ARCHIVED;
         }
         PageResult<Process> result = processes.search(
-                new ProcessFilter(clientId, status, search.courtCode(), search.number(), restrictTo), page);
+                new ProcessFilter(clientId, search.lawyerId(), status, search.courtCode(), search.number(), restrictTo),
+                page);
         List<ProcessView> views = enrich(result.content());
         return new PageResult<>(views, result.page(), result.size(), result.totalElements(), result.totalPages());
     }
@@ -133,8 +153,9 @@ public class ProcessService implements ProcessDirectory {
     @Transactional(readOnly = true)
     public List<MonitoredProcess> findMonitorable() {
         return processes.findByStatusOrderByLastCheckedAt(ProcessStatus.ACTIVE).stream()
-                .map(p -> new MonitoredProcess(p.id(), p.clientId(), p.number().digits(), p.number().formatted(),
-                        p.courtCode(), p.lastCheckedAt().orElse(null), p.createdAt()))
+                .map(p -> new MonitoredProcess(p.id(), p.clientId(), p.lawyerId().orElse(null), p.number().digits(),
+                        p.number().formatted(), p.courtCode(), p.confidential(), p.lastCheckedAt().orElse(null),
+                        p.createdAt()))
                 .toList();
     }
 
@@ -165,13 +186,30 @@ public class ProcessService implements ProcessDirectory {
             return List.of();
         }
         Set<UUID> clientIds = page.stream().map(Process::clientId).collect(Collectors.toSet());
+        Set<UUID> lawyerIds = page.stream().flatMap(p -> p.lawyerId().stream()).collect(Collectors.toSet());
         Map<UUID, ClientSummary> clientsById = clients.findByIds(clientIds);
+        Map<UUID, LawyerSummary> lawyersById = lawyerIds.isEmpty() ? Map.of() : lawyers.findByIds(lawyerIds);
         Map<UUID, ProcessMonitoringStatus> status = insights.statusOf(page.stream().map(Process::id).toList());
         return page.stream()
                 .map(p -> toView(p,
                         Optional.ofNullable(clientsById.get(p.clientId())).map(ClientSummary::name).orElse(null),
+                        p.lawyerId().map(lawyersById::get).map(LawyerSummary::name).orElse(null),
                         status.getOrDefault(p.id(), ProcessMonitoringStatus.NONE)))
                 .toList();
+    }
+
+    private LawyerSummary resolveLawyer(UUID lawyerId) {
+        if (lawyerId == null) {
+            return null;
+        }
+        LawyerSummary lawyer = lawyers.findById(lawyerId)
+                .orElseThrow(() -> new BusinessRuleViolationException("lawyer-not-found",
+                        "Advogado " + lawyerId + " não existe."));
+        if (!lawyer.active()) {
+            throw new BusinessRuleViolationException("lawyer-inactive",
+                    "Não é possível vincular advogado inativo ao processo.");
+        }
+        return lawyer;
     }
 
     static MonitoringSituation situationOf(ProcessStatus status, ProcessMonitoringStatus monitoring) {
@@ -184,9 +222,11 @@ public class ProcessService implements ProcessDirectory {
         };
     }
 
-    private static ProcessView toView(Process p, String clientName, ProcessMonitoringStatus monitoring) {
-        return new ProcessView(p.id(), p.clientId(), clientName, p.number().formatted(), p.courtCode(),
-                p.subject().orElse(null), p.status(), situationOf(p.status(), monitoring),
+    private static ProcessView toView(Process p, String clientName, String lawyerName,
+            ProcessMonitoringStatus monitoring) {
+        return new ProcessView(p.id(), p.clientId(), clientName, p.lawyerId().orElse(null), lawyerName,
+                p.practiceArea().orElse(null), p.number().formatted(), p.courtCode(),
+                p.subject().orElse(null), p.status(), p.confidential(), situationOf(p.status(), monitoring),
                 monitoring.unreadPublications(), monitoring.lastError(), p.lastCheckedAt().orElse(null),
                 p.createdAt());
     }
@@ -196,7 +236,7 @@ public class ProcessService implements ProcessDirectory {
     }
 
     private static ProcessSummary summary(Process p) {
-        return new ProcessSummary(p.id(), p.clientId(), p.number().formatted(), p.courtCode(),
-                p.subject().orElse(null));
+        return new ProcessSummary(p.id(), p.clientId(), p.lawyerId().orElse(null), p.number().formatted(),
+                p.courtCode(), p.subject().orElse(null));
     }
 }

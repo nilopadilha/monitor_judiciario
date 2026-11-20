@@ -18,8 +18,8 @@ import java.util.List;
 @AnalyzeClasses(packages = "br.com.monitorjudicial", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {
 
-    private static final List<String> MODULES = List.of("authentication", "clients", "tribunals", "processes", "djen",
-            "monitoring", "notifications", "audit", "dashboard");
+    private static final List<String> MODULES = List.of("authentication", "clients", "lawyers", "tribunals", "processes",
+            "djen", "monitoring", "notifications", "audit", "dashboard");
 
     @ArchTest
     static final ArchRule domainIsFrameworkFree = noClasses()

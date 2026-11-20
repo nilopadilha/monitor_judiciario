@@ -1,11 +1,17 @@
 package br.com.monitorjudicial.djen.infrastructure;
 
-import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
-/** Formato de transporte da API DJEN. Nenhum destes tipos sai do pacote de infraestrutura. */
+/**
+ * Formato de transporte da API DJEN. Nenhum destes tipos sai do pacote de infraestrutura.
+ *
+ * <p>A API real do DJEN devolve campos duplicados com grafias distintas no mesmo objeto JSON
+ * (ex.: {@code data_disponibilizacao} e {@code datadisponibilizacao}). Em records Java, usar {@code @JsonAlias}
+ * causa {@code InvalidDefinitionException} no Jackson quando ambas as chaves coexistem; por isso cada chave é mapeada
+ * para seu próprio componente.
+ */
 final class DjenDtos {
 
     private DjenDtos() {
@@ -24,14 +30,45 @@ final class DjenDtos {
             long id,
             String hash,
             String siglaTribunal,
-            @JsonProperty("data_disponibilizacao") @JsonAlias("datadisponibilizacao") String dataDisponibilizacao,
+            @JsonProperty("data_disponibilizacao") String dataDisponibilizacao,
+            @JsonProperty("datadisponibilizacao") String dataDisponibilizacaoAlt,
             String tipoComunicacao,
             String tipoDocumento,
             String nomeOrgao,
             String nomeClasse,
             String texto,
-            @JsonProperty("numero_processo") @JsonAlias("numeroProcesso") String numeroProcesso,
-            String link) {
+            @JsonProperty("numero_processo") String numeroProcesso,
+            @JsonProperty("numeroProcesso") String numeroProcessoAlt,
+            String link,
+            List<Destinatario> destinatarios,
+            List<DestinatarioAdvogado> destinatarioadvogados) {
+
+        String resolvedDataDisponibilizacao() {
+            return dataDisponibilizacao != null && !dataDisponibilizacao.isBlank()
+                    ? dataDisponibilizacao
+                    : dataDisponibilizacaoAlt;
+        }
+
+        String resolvedNumeroProcesso() {
+            return numeroProcesso != null && !numeroProcesso.isBlank()
+                    ? numeroProcesso
+                    : numeroProcessoAlt;
+        }
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record Destinatario(String nome, String polo) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record DestinatarioAdvogado(AdvogadoInfo advogado) {
+    }
+
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    record AdvogadoInfo(
+            String nome,
+            @JsonProperty("numero_oab") String numeroOab,
+            @JsonProperty("uf_oab") String ufOab) {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -43,7 +80,19 @@ final class DjenDtos {
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
-    record Journal(String tribunal, String data, String meio, String url,
-            @JsonAlias("total_comunicacoes") int totalComunicacoes) {
+    record Journal(
+            String tribunal,
+            String data,
+            String meio,
+            String url,
+            @JsonProperty("total_comunicacoes") Integer totalComunicacoesSnake,
+            @JsonProperty("totalComunicacoes") Integer totalComunicacoesCamel) {
+
+        int resolvedTotalComunicacoes() {
+            if (totalComunicacoesSnake != null) {
+                return totalComunicacoesSnake;
+            }
+            return totalComunicacoesCamel == null ? 0 : totalComunicacoesCamel;
+        }
     }
 }
