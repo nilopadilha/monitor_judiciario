@@ -25,10 +25,12 @@ const clean = (params: Query) =>
 export const authApi = {
   login: (email: string, password: string) =>
     http.post<TokenPair>('/tokens', { grantType: 'PASSWORD', email, password }).then((r) => r.data),
-  refresh: (refreshToken: string) =>
-    http.post<TokenPair>('/tokens', { grantType: 'REFRESH_TOKEN', refreshToken }).then((r) => r.data),
-  revoke: (refreshToken: string) => http.post('/token-revocations', { refreshToken }),
+  refresh: () =>
+    http.post<TokenPair>('/tokens', { grantType: 'REFRESH_TOKEN' }).then((r) => r.data),
+  revoke: () => http.post('/token-revocations', {}),
   me: () => http.get<User>('/users/me').then((r) => r.data),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    http.put('/users/me/password', { currentPassword, newPassword }),
 }
 
 export const dashboardApi = {

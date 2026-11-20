@@ -160,6 +160,16 @@ class DjenClientAdapterTest {
         assertThat(DjenMapper.digits(null)).isNull();
     }
 
+    @Test
+    void retryAfterCapsSecondsAndParsesHttpDate() {
+        long now = System.currentTimeMillis();
+        Long capped = DjenFeignConfiguration.retryAfter(List.of("9999"));
+        assertThat(capped).isNotNull().isLessThanOrEqualTo(now + 65_000L);
+        assertThat(DjenFeignConfiguration.retryAfter(List.of("Wed, 21 Oct 2015 07:28:00 GMT"))).isNotNull();
+        assertThat(DjenFeignConfiguration.retryAfter(List.of("invalido"))).isNull();
+        assertThat(DjenFeignConfiguration.retryAfter(List.of())).isNull();
+    }
+
     static String page(int count, String... items) {
         return "{\"status\":\"success\",\"message\":\"ok\",\"count\":" + count + ",\"items\":[" + String.join(",", items)
                 + "]}";

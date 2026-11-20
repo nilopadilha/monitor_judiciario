@@ -1,14 +1,19 @@
 package br.com.monitorjudicial.it;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import br.com.monitorjudicial.support.IntegrationTest;
 import com.fasterxml.jackson.databind.JsonNode;
+import jakarta.servlet.http.Cookie;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -109,5 +114,47 @@ class AuthenticationIT extends IntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors.email").exists())
                 .andExpect(jsonPath("$.errors.password").exists());
+    }
+
+    @Test
+    void refreshCookieWorksAndUserStatusAndPasswordCanBeUpdated() throws Exception {
+        var loginRes = mvc.perform(jsonBody(post("/api/v1/tokens"), Map.of("grantType", "PASSWORD", "email",
+                        "admin@test.local", "password", "admin-test-12345")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Set-Cookie", containsString("HttpOnly")))
+                .andExpect(cookie().exists("mj_refresh"))
+                .andReturn().getResponse();
+        Cookie refreshCookie = loginRes.getCookie("mj_refresh");
+        assertThat(refreshCookie).isNotNull();
+
+        mvc.perform(jsonBody(post("/api/v1/tokens").cookie(refreshCookie), Map.of("grantType", "REFRESH_TOKEN")))
+                .andExpect(status().isOk())
+                .andExpect(cookie().exists("mj_refresh"));
+
+        String admin = adminToken();
+        JsonNode created = read(mvc.perform(jsonBody(auth(post("/api/v1/users"), admin), Map.of(
+                "name", "Gestor Teste", "email", "gestor-lifecycle@x.com", "password", "senha-forte-123",
+                "role", "MANAGER"))).andExpect(status().isCreated()));
+        String managerId = created.get("id").asText();
+        JsonNode managerLogin = login("gestor-lifecycle@x.com", "senha-forte-123");
+        String managerAccess = managerLogin.get("accessToken").asText();
+        String managerRefresh = managerLogin.get("refreshToken").asText();
+
+        mvc.perform(jsonBody(auth(put("/api/v1/users/me/password"), managerAccess), Map.of(
+                        "currentPassword", "senha-forte-123", "newPassword", "nova-senha-forte-456")))
+                .andExpect(status().isNoContent())
+                .andExpect(header().string("Set-Cookie", containsString("Max-Age=0")));
+
+        // refresh antigo foi revogado após troca de senha
+        mvc.perform(jsonBody(post("/api/v1/tokens"), Map.of("grantType", "REFRESH_TOKEN", "refreshToken", managerRefresh)))
+                .andExpect(status().isUnauthorized());
+
+        // desativação pelo admin impede novo login
+        mvc.perform(jsonBody(auth(patch("/api/v1/users/" + managerId), admin), Map.of("active", false)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.active").value(false));
+        mvc.perform(jsonBody(post("/api/v1/tokens"), Map.of("grantType", "PASSWORD", "email", "gestor-lifecycle@x.com",
+                        "password", "nova-senha-forte-456")))
+                .andExpect(status().isUnauthorized());
     }
 }

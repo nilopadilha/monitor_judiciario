@@ -10,6 +10,21 @@ servers:
 security:
 - bearer: []
 paths:
+  /api/v1/users/me/password:
+    put:
+      tags:
+      - Usuários
+      summary: Altera a senha do usuário autenticado e encerra sessões ativas
+      operationId: changePassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
   /api/v1/processes/{id}:
     get:
       tags:
@@ -196,6 +211,12 @@ paths:
       summary: Emite tokens por senha (login) ou por refresh token (renovação com
         rotação)
       operationId: create_1
+      parameters:
+      - name: mj_refresh
+        in: cookie
+        required: false
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
@@ -216,15 +237,20 @@ paths:
       summary: "Revoga o refresh token e toda a sua cadeia (logout), no modelo da\
         \ RFC 7009"
       operationId: revoke
+      parameters:
+      - name: mj_refresh
+        in: cookie
+        required: false
+        schema:
+          type: string
       requestBody:
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/TokenRevocationRequest"
-        required: true
       responses:
-        "204":
-          description: No Content
+        "200":
+          description: OK
   /api/v1/processes:
     get:
       tags:
@@ -410,8 +436,8 @@ paths:
       summary: Inicia uma execução manual (assíncrona). 409 se já houver uma em andamento
       operationId: start
       responses:
-        "200":
-          description: OK
+        "202":
+          description: Accepted
           content:
             '*/*':
               schema:
@@ -475,6 +501,51 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/ClientView"
+  /api/v1/users/{id}:
+    get:
+      tags:
+      - Usuários
+      summary: Detalha usuário
+      operationId: get_2
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserView"
+    patch:
+      tags:
+      - Usuários
+      summary: Ativa ou desativa usuário (revoga sessões ativas ao desativar)
+      operationId: updateStatus
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserStatusRequest"
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/UserView"
   /api/v1/tribunals/{code}:
     patch:
       tags:
@@ -505,7 +576,7 @@ paths:
       tags:
       - Publicações
       summary: Detalha publicação
-      operationId: get_2
+      operationId: get_3
       parameters:
       - name: id
         in: path
@@ -545,26 +616,6 @@ paths:
             '*/*':
               schema:
                 $ref: "#/components/schemas/PublicationView"
-  /api/v1/users/{id}:
-    get:
-      tags:
-      - Usuários
-      summary: Detalha usuário
-      operationId: get_3
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          type: string
-          format: uuid
-      responses:
-        "200":
-          description: OK
-          content:
-            '*/*':
-              schema:
-                $ref: "#/components/schemas/UserView"
   /api/v1/users/me:
     get:
       tags:
@@ -775,6 +826,19 @@ paths:
                 $ref: "#/components/schemas/PageResultAuditLog"
 components:
   schemas:
+    ChangePasswordRequest:
+      type: object
+      properties:
+        currentPassword:
+          type: string
+          minLength: 1
+        newPassword:
+          type: string
+          maxLength: 128
+          minLength: 12
+      required:
+      - currentPassword
+      - newPassword
     UpdateProcessRequest:
       type: object
       properties:
@@ -985,9 +1049,6 @@ components:
       properties:
         refreshToken:
           type: string
-          minLength: 1
-      required:
-      - refreshToken
     RegisterProcessRequest:
       type: object
       properties:
@@ -1125,6 +1186,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/JobView"
+    UpdateUserStatusRequest:
+      type: object
+      properties:
+        active:
+          type: boolean
+      required:
+      - active
     TribunalPatchRequest:
       type: object
       properties:

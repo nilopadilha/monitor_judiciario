@@ -7,4 +7,5 @@ object Versions {
     const val springdoc = "2.8.15"
     const val archunit = "1.4.2"
     const val wiremock = "3.13.1"
+    const val jspecify = "1.0.0"
 }

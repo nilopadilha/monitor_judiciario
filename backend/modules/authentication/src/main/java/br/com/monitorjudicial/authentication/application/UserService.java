@@ -2,6 +2,7 @@ package br.com.monitorjudicial.authentication.application;
 
 import br.com.monitorjudicial.authentication.domain.User;
 import br.com.monitorjudicial.authentication.domain.port.PasswordHasher;
+import br.com.monitorjudicial.authentication.domain.port.RefreshTokenRepository;
 import br.com.monitorjudicial.authentication.domain.port.UserRepository;
 import br.com.monitorjudicial.clients.api.ClientDirectory;
 import br.com.monitorjudicial.shared.application.PageQuery;
@@ -11,7 +12,9 @@ import br.com.monitorjudicial.shared.domain.BusinessRuleViolationException;
 import br.com.monitorjudicial.shared.domain.ConflictException;
 import br.com.monitorjudicial.shared.domain.Email;
 import br.com.monitorjudicial.shared.domain.ResourceNotFoundException;
+import br.com.monitorjudicial.shared.domain.UnauthorizedException;
 import java.time.Clock;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.stereotype.Service;
@@ -23,14 +26,16 @@ public class UserService {
     static final int MIN_PASSWORD_LENGTH = 12;
 
     private final UserRepository users;
+    private final RefreshTokenRepository refreshTokens;
     private final PasswordHasher passwordHasher;
     private final ClientDirectory clients;
     private final Auditor auditor;
     private final Clock clock;
 
-    public UserService(UserRepository users, PasswordHasher passwordHasher, ClientDirectory clients, Auditor auditor,
-            Clock clock) {
+    public UserService(UserRepository users, RefreshTokenRepository refreshTokens, PasswordHasher passwordHasher,
+            ClientDirectory clients, Auditor auditor, Clock clock) {
         this.users = users;
+        this.refreshTokens = refreshTokens;
         this.passwordHasher = passwordHasher;
         this.clients = clients;
         this.auditor = auditor;
@@ -62,6 +67,41 @@ public class UserService {
     @Transactional(readOnly = true)
     public PageResult<UserView> list(PageQuery page) {
         return users.findAll(page).map(UserView::of);
+    }
+
+    @Transactional
+    public UserView setActive(UUID userId, boolean active, UUID actorId) {
+        if (!active && userId.equals(actorId)) {
+            throw new BusinessRuleViolationException("cannot-deactivate-self",
+                    "Não é permitido desativar o próprio usuário autenticado.");
+        }
+        User current = users.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("usuario", userId));
+        Instant now = clock.instant();
+        User saved = users.save(current.withActive(active, now));
+        if (!active) {
+            refreshTokens.revokeAllForUser(userId, now);
+        }
+        auditor.record(active ? "ACTIVATE" : "DEACTIVATE", "user", userId, Map.of("active", active));
+        return UserView.of(saved);
+    }
+
+    @Transactional
+    public void changePassword(UUID userId, String currentPassword, String newPassword) {
+        User current = users.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("usuario", userId));
+        if (!passwordHasher.matches(currentPassword, current.passwordHash())) {
+            throw new UnauthorizedException("invalid-current-password", "Senha atual inválida.");
+        }
+        validatePassword(newPassword);
+        if (passwordHasher.matches(newPassword, current.passwordHash())) {
+            throw new BusinessRuleViolationException("password-unchanged",
+                    "A nova senha deve ser diferente da senha atual.");
+        }
+        Instant now = clock.instant();
+        users.save(current.withPasswordHash(passwordHasher.hash(newPassword), now));
+        refreshTokens.revokeAllForUser(userId, now);
+        auditor.record("CHANGE_PASSWORD", "user", userId, Map.of());
     }
 
     static void validatePassword(String password) {

@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -46,7 +47,10 @@ class DjenClientAdapter implements DjenClient {
             DjenDtos.CommunicationPage response = call("search", () -> feign.searchCommunications(
                     search.processNumber(), search.courtCode(), iso(search.from()), iso(search.to()), current,
                     properties.pageSize()));
-            List<DjenDtos.CommunicationItem> items = response == null ? List.of() : response.safeItems();
+            if (response == null) {
+                return result;
+            }
+            List<DjenDtos.CommunicationItem> items = response.safeItems();
             items.stream().map(mapper::toCommunication).forEach(result::add);
             if (items.size() < properties.pageSize() || (response.count() > 0 && result.size() >= response.count())) {
                 return result;
@@ -84,8 +88,9 @@ class DjenClientAdapter implements DjenClient {
         return groups.stream()
                 .filter(g -> g.instituicoes() != null)
                 .flatMap(g -> g.instituicoes().stream()
-                        .filter(i -> i.sigla() != null)
-                        .map(i -> new DjenTribunal(i.sigla().strip().toUpperCase(), i.nome(), g.uf())))
+                        .filter(i -> i != null && i.sigla() != null && !i.sigla().isBlank())
+                        .map(i -> new DjenTribunal(i.sigla().strip().toUpperCase(Locale.ROOT), i.nome(),
+                                g.uf() == null ? null : g.uf().strip().toUpperCase(Locale.ROOT))))
                 .filter(Objects::nonNull)
                 .sorted(Comparator.comparing(DjenTribunal::code))
                 .toList();

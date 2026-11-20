@@ -1,5 +1,9 @@
-# Produção: logs JSON (ECS) para agregação.
+# Produção: logs JSON (ECS) e cookies seguros por padrão.
 logging:
   structured:
     format:
       console: ecs
+
+security:
+  cookie:
+    secure: ${AUTH_COOKIE_SECURE:true}

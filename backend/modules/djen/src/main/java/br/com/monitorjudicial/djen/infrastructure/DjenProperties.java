@@ -13,7 +13,7 @@ public record DjenProperties(String baseUrl, int pageSize, int maxPages, Duratio
 
     public DjenProperties {
         baseUrl = baseUrl == null ? "https://comunicaapi.pje.jus.br" : baseUrl;
-        pageSize = pageSize <= 0 ? 100 : pageSize;
+        pageSize = pageSize <= 0 ? 50 : Math.min(pageSize, 100);
         maxPages = maxPages <= 0 ? 50 : maxPages;
         connectTimeout = connectTimeout == null ? Duration.ofSeconds(5) : connectTimeout;
         readTimeout = readTimeout == null ? Duration.ofSeconds(30) : readTimeout;
