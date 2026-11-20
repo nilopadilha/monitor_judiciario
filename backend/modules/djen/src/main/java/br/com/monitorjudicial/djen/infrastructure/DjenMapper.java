@@ -4,6 +4,8 @@ import br.com.monitorjudicial.djen.api.DjenCommunication;
 import br.com.monitorjudicial.djen.api.DjenJournal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
+import java.util.List;
+import java.util.Locale;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.Named;
@@ -14,21 +16,48 @@ interface DjenMapper {
 
     @Mapping(target = "djenId", source = "id")
     @Mapping(target = "courtCode", source = "siglaTribunal")
-    @Mapping(target = "availableAt", source = "dataDisponibilizacao", qualifiedByName = "date")
+    @Mapping(target = "availableAt", expression = "java(DjenMapper.date(item.resolvedDataDisponibilizacao()))")
     @Mapping(target = "communicationType", source = "tipoComunicacao")
     @Mapping(target = "documentType", source = "tipoDocumento")
     @Mapping(target = "organName", source = "nomeOrgao")
     @Mapping(target = "className", source = "nomeClasse")
     @Mapping(target = "text", source = "texto")
-    @Mapping(target = "processNumber", source = "numeroProcesso", qualifiedByName = "digits")
+    @Mapping(target = "processNumber", expression = "java(DjenMapper.digits(item.resolvedNumeroProcesso()))")
+    @Mapping(target = "recipientNames", expression = "java(DjenMapper.recipients(item.destinatarios()))")
+    @Mapping(target = "lawyerOabs", expression = "java(DjenMapper.lawyerOabs(item.destinatarioadvogados()))")
     DjenCommunication toCommunication(DjenDtos.CommunicationItem item);
 
     @Mapping(target = "courtCode", source = "tribunal")
     @Mapping(target = "date", source = "data", qualifiedByName = "date")
     @Mapping(target = "medium", source = "meio")
     @Mapping(target = "downloadUrl", source = "url")
-    @Mapping(target = "totalCommunications", source = "totalComunicacoes")
+    @Mapping(target = "totalCommunications", expression = "java(journal.resolvedTotalComunicacoes())")
     DjenJournal toJournal(DjenDtos.Journal journal);
+
+    static List<String> recipients(List<DjenDtos.Destinatario> items) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        return items.stream()
+                .filter(d -> d != null && d.nome() != null && !d.nome().isBlank())
+                .map(d -> d.nome().strip())
+                .distinct()
+                .toList();
+    }
+
+    static List<String> lawyerOabs(List<DjenDtos.DestinatarioAdvogado> items) {
+        if (items == null || items.isEmpty()) {
+            return List.of();
+        }
+        return items.stream()
+                .filter(d -> d != null && d.advogado() != null
+                        && d.advogado().numeroOab() != null && !d.advogado().numeroOab().isBlank()
+                        && d.advogado().ufOab() != null && !d.advogado().ufOab().isBlank())
+                .map(d -> d.advogado().numeroOab().strip().toUpperCase(Locale.ROOT)
+                        + "/" + d.advogado().ufOab().strip().toUpperCase(Locale.ROOT))
+                .distinct()
+                .toList();
+    }
 
     @Named("digits")
     static String digits(String value) {

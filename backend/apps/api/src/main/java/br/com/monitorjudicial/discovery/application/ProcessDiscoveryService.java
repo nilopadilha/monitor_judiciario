@@ -13,6 +13,7 @@ import br.com.monitorjudicial.shared.audit.Auditor;
 import br.com.monitorjudicial.shared.domain.BusinessRuleViolationException;
 import br.com.monitorjudicial.shared.domain.ConflictException;
 import br.com.monitorjudicial.shared.domain.ResourceNotFoundException;
+import java.text.Normalizer;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -45,10 +46,12 @@ public class ProcessDiscoveryService {
     private final Auditor auditor;
     private final Clock clock;
     private final int lookbackDays;
+    private final int maxPages;
 
     public ProcessDiscoveryService(DjenClient djen, ClientDirectory clients, LawyerDirectory lawyers,
             ProcessService processes, ProcessDiscoveryPort port, Auditor auditor, Clock clock,
-            @Value("${monitoring.initial-lookback-days:3650}") int lookbackDays) {
+            @Value("${monitoring.initial-lookback-days:3650}") int lookbackDays,
+            @Value("${discovery.max-pages:3}") int maxPages) {
         this.djen = djen;
         this.clients = clients;
         this.lawyers = lawyers;
@@ -57,6 +60,7 @@ public class ProcessDiscoveryService {
         this.auditor = auditor;
         this.clock = clock;
         this.lookbackDays = lookbackDays;
+        this.maxPages = maxPages;
     }
 
     public DiscoveryResult discoverForClient(UUID clientId) {
@@ -69,7 +73,7 @@ public class ProcessDiscoveryService {
         LocalDate today = LocalDate.now(clock.withZone(BUSINESS_ZONE));
         LocalDate from = lookbackDays <= 0 ? null : today.minusDays(lookbackDays);
         List<DjenCommunication> communications = djen.searchCommunications(
-                DjenSearch.byPartyName(client.name(), from, today));
+                DjenSearch.byPartyName(client.name(), from, today, maxPages));
 
         List<LawyerSummary> activeLawyers = lawyers.findActive();
         Map<String, DjenCommunication> byProcess = deduplicateByProcess(communications);
@@ -85,7 +89,7 @@ public class ProcessDiscoveryService {
                 alreadyRegistered++;
                 continue;
             }
-            LawyerSummary matchedLawyer = matchLawyerInText(comm.text(), activeLawyers);
+            LawyerSummary matchedLawyer = matchLawyer(comm, activeLawyers);
             try {
                 var registered = processes.register(new RegisterProcessCommand(
                         client.id(),
@@ -117,7 +121,7 @@ public class ProcessDiscoveryService {
         LocalDate today = LocalDate.now(clock.withZone(BUSINESS_ZONE));
         LocalDate from = lookbackDays <= 0 ? null : today.minusDays(lookbackDays);
         List<DjenCommunication> communications = djen.searchCommunications(
-                DjenSearch.byOab(lawyer.oabNumber(), lawyer.oabUf(), from, today));
+                DjenSearch.byOab(lawyer.oabNumber(), lawyer.oabUf(), from, today, maxPages));
 
         List<ProcessDiscoveryPort.ActiveClient> activeClients = port.findActiveClients();
         Map<String, DjenCommunication> byProcess = deduplicateByProcess(communications);
@@ -142,7 +146,7 @@ public class ProcessDiscoveryService {
                 }
                 continue;
             }
-            var matchedClient = matchClientInText(comm.text(), activeClients);
+            var matchedClient = matchClient(comm, activeClients);
             if (matchedClient == null) {
                 unmatched.add(digits);
                 continue;
@@ -177,8 +181,18 @@ public class ProcessDiscoveryService {
         return map;
     }
 
-    private static LawyerSummary matchLawyerInText(String text, List<LawyerSummary> activeLawyers) {
-        if (text == null || text.isBlank() || activeLawyers.isEmpty()) {
+    private static LawyerSummary matchLawyer(DjenCommunication comm, List<LawyerSummary> activeLawyers) {
+        if (activeLawyers.isEmpty()) {
+            return null;
+        }
+        for (LawyerSummary lawyer : activeLawyers) {
+            String oabKey = lawyer.oabNumber().toUpperCase(Locale.ROOT) + "/" + lawyer.oabUf().toUpperCase(Locale.ROOT);
+            if (comm.lawyerOabs().contains(oabKey)) {
+                return lawyer;
+            }
+        }
+        String text = comm.text();
+        if (text == null || text.isBlank()) {
             return null;
         }
         String upper = text.toUpperCase(Locale.ROOT);
@@ -190,19 +204,31 @@ public class ProcessDiscoveryService {
         return null;
     }
 
-    private static ProcessDiscoveryPort.ActiveClient matchClientInText(String text,
+    private static ProcessDiscoveryPort.ActiveClient matchClient(DjenCommunication comm,
             List<ProcessDiscoveryPort.ActiveClient> activeClients) {
-        if (text == null || text.isBlank() || activeClients.isEmpty()) {
+        if (activeClients.isEmpty()) {
             return null;
         }
-        String lower = text.toLowerCase(Locale.ROOT);
+        List<String> normalizedRecipients = comm.recipientNames().stream()
+                .map(ProcessDiscoveryService::normalize)
+                .toList();
+        String normalizedText = comm.text() == null ? "" : normalize(comm.text());
         for (var client : activeClients) {
-            if (client.name() != null && client.name().length() >= 4
-                    && lower.contains(client.name().toLowerCase(Locale.ROOT))) {
+            if (client.name() == null || client.name().length() < 4) {
+                continue;
+            }
+            String needle = normalize(client.name());
+            if (normalizedRecipients.stream().anyMatch(r -> r.contains(needle) || needle.contains(r) && r.length() >= 4)
+                    || (!normalizedText.isEmpty() && normalizedText.contains(needle))) {
                 return client;
             }
         }
         return null;
+    }
+
+    private static String normalize(String value) {
+        String decomposed = Normalizer.normalize(value, Normalizer.Form.NFD);
+        return decomposed.replaceAll("\\p{M}", "").toLowerCase(Locale.ROOT).strip();
     }
 
     private static String subjectFrom(DjenCommunication comm) {

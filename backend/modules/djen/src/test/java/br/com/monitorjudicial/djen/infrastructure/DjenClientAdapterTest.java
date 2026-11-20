@@ -188,6 +188,66 @@ class DjenClientAdapterTest {
                 .hasMessageContaining("HTTP 403");
     }
 
+    @Test
+    void decodesRealDjenPayloadWithDuplicateDateFieldsAndStructuredParties() {
+        djen.stubFor(get(urlPathEqualTo("/api/v1/comunicacao"))
+                .withQueryParam("numeroOab", equalTo("10432"))
+                .withQueryParam("ufOab", equalTo("RN"))
+                .willReturn(okJson("""
+                        {"status":"success","message":"Sucesso","count":1,"items":[{
+                          "id":793375616,
+                          "hash":"vKAPnkeQmZd",
+                          "siglaTribunal":"TJRN",
+                          "data_disponibilizacao":"2026-11-20",
+                          "datadisponibilizacao":"20/11/2026",
+                          "tipoComunicacao":"Intimação",
+                          "tipoDocumento":"Acórdão",
+                          "nomeOrgao":"1ª Câmara Cível",
+                          "nomeClasse":"Apelação Cível",
+                          "texto":"Publicação teste",
+                          "numero_processo":"08558819420218205001",
+                          "numeroProcesso":"0855881-94.2021.8.20.5001",
+                          "destinatarios":[{"nome":"CARLOS FÁBIO FRAZÃO DA SILVA","polo":"A"}],
+                          "destinatarioadvogados":[{"advogado":{"nome":"DR. TESTE","numero_oab":"10432","uf_oab":"RN"}}]
+                        }]}
+                        """)));
+
+        List<DjenCommunication> result = client.searchCommunications(
+                DjenSearch.byOab("10432", "RN", LocalDate.of(2026, 1, 1), LocalDate.of(2026, 11, 20), 1));
+
+        assertThat(result).hasSize(1);
+        DjenCommunication comm = result.getFirst();
+        assertThat(comm.availableAt()).isEqualTo(LocalDate.of(2026, 11, 20));
+        assertThat(comm.processNumber()).isEqualTo("08558819420218205001");
+        assertThat(comm.recipientNames()).containsExactly("CARLOS FÁBIO FRAZÃO DA SILVA");
+        assertThat(comm.lawyerOabs()).containsExactly("10432/RN");
+    }
+
+    @Test
+    void reportsDecodeFailureClearlyInsteadOfHttp200AndRespectsMaxPages() {
+        djen.stubFor(get(urlPathEqualTo("/api/v1/comunicacao"))
+                .withQueryParam("pagina", equalTo("1"))
+                .willReturn(aResponse().withStatus(200).withHeader("Content-Type", "application/json").withBody("{invalido")));
+
+        assertThatThrownBy(() -> client.searchCommunications(new DjenSearch("1", null, null, null)))
+                .isInstanceOf(DjenUnavailableException.class)
+                .hasMessageContaining("resposta inválida do DJEN");
+
+        djen.resetAll();
+        djen.stubFor(get(urlPathEqualTo("/api/v1/comunicacao")).withQueryParam("pagina", equalTo("1"))
+                .willReturn(okJson(page(10, item(1, "h1"), item(2, "h2")))));
+        djen.stubFor(get(urlPathEqualTo("/api/v1/comunicacao")).withQueryParam("pagina", equalTo("2"))
+                .willReturn(aResponse().withStatus(429).withHeader("Retry-After", "0")));
+
+        List<DjenCommunication> limited = client.searchCommunications(
+                DjenSearch.byPartyName("Maria", null, null, 1));
+        assertThat(limited).hasSize(2);
+
+        List<DjenCommunication> partialOnRateLimit = client.searchCommunications(
+                DjenSearch.byPartyName("Maria", null, null, 3));
+        assertThat(partialOnRateLimit).hasSize(2);
+    }
+
     static String page(int count, String... items) {
         return "{\"status\":\"success\",\"message\":\"ok\",\"count\":" + count + ",\"items\":[" + String.join(",", items)
                 + "]}";

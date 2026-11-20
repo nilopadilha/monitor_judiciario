@@ -120,6 +120,7 @@ monitoring:
 
 discovery:
   auto-on-register: ${DISCOVERY_AUTO_ON_REGISTER:true}
+  max-pages: ${DISCOVERY_MAX_PAGES:3}
 
 deadlines:
   alert-advance-days: ${DEADLINES_ALERT_ADVANCE_DAYS:5}

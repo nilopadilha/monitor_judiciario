@@ -66,17 +66,20 @@ class LawyersAndDiscoveryIT extends IntegrationTest {
         assertThat(processes.get("totalElements").asLong()).isEqualTo(1);
         assertThat(processes.get("content").get(0).get("lawyerName").asText()).isEqualTo("Dr. Carlos Mendes");
 
-        // 4. Simula DJEN retornando outro processo pela OAB do advogado (com nome do cliente no texto)
+        // 4. Simula DJEN retornando outro processo pela OAB com datadisponibilizacao duplicada e destinatarios estruturados
         DJEN.stubFor(WireMock.get(urlPathEqualTo("/api/v1/comunicacao"))
                 .withQueryParam("numeroOab", equalTo("234567"))
                 .withQueryParam("ufOab", equalTo("SP"))
                 .willReturn(okJson("""
                         {"status":"success","count":1,"items":[{
-                          "id":102,"hash":"disc-h2","siglaTribunal":"TJRJ","data_disponibilizacao":"2026-11-19",
+                          "id":102,"hash":"disc-h2","siglaTribunal":"TJRJ",
+                          "data_disponibilizacao":"2026-11-19","datadisponibilizacao":"19/11/2026",
                           "tipoComunicacao":"Intimação","tipoDocumento":"Sentença","nomeOrgao":"1ª Vara",
                           "nomeClasse":"Ação de Cobrança",
-                          "texto":"Parte autora: Joao Pereira Descoberta. Advogado OAB/SP 234567.",
-                          "numero_processo":"%s"
+                          "texto":"Julgo procedente o pedido.",
+                          "numero_processo":"%s",
+                          "destinatarios":[{"nome":"JOÃO PEREIRA DESCOBERTA","polo":"A"}],
+                          "destinatarioadvogados":[{"advogado":{"nome":"DR. CARLOS MENDES","numero_oab":"234567","uf_oab":"SP"}}]
                         }]}
                         """.formatted(proc2))));
 

@@ -76,7 +76,7 @@ export const clientsApi = {
   deactivate: (id: string) => http.delete(`/clients/${id}`),
   anonymize: (id: string) => http.post<Client>(`/clients/${id}/anonymizations`).then((r) => r.data),
   discoverProcesses: (id: string) =>
-    http.post<DiscoveryResult>(`/clients/${id}/process-discoveries`).then((r) => r.data),
+    http.post<DiscoveryResult>(`/clients/${id}/process-discoveries`, undefined, { timeout: 90_000 }).then((r) => r.data),
 }
 
 export const lawyersApi = {
@@ -86,7 +86,7 @@ export const lawyersApi = {
   update: (id: string, input: LawyerInput) => http.put<Lawyer>(`/lawyers/${id}`, input).then((r) => r.data),
   deactivate: (id: string) => http.delete(`/lawyers/${id}`),
   discoverProcesses: (id: string) =>
-    http.post<DiscoveryResult>(`/lawyers/${id}/process-discoveries`).then((r) => r.data),
+    http.post<DiscoveryResult>(`/lawyers/${id}/process-discoveries`, undefined, { timeout: 90_000 }).then((r) => r.data),
 }
 
 export const usersApi = {

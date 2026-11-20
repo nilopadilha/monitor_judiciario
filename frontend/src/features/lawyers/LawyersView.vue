@@ -101,7 +101,11 @@ async function discover(lawyer: Lawyer) {
   problem.value = null
   try {
     const res = await lawyersApi.discoverProcesses(lawyer.id)
-    feedback.value = `${lawyer.oabFormatted}: ${res.communicationsFound} publicações analisadas, ${res.processesCreated} processos criados, ${res.processesLinked} vinculados.`
+    const pending =
+      res.unmatchedProcessNumbers.length > 0
+        ? `, ${res.unmatchedProcessNumbers.length} aguardando cadastro do cliente`
+        : ''
+    feedback.value = `${lawyer.oabFormatted}: ${res.communicationsFound} publicações analisadas, ${res.processesCreated} processos criados, ${res.processesLinked} vinculados${pending}.`
   } catch (error) {
     problem.value = toProblem(error)
   } finally {
