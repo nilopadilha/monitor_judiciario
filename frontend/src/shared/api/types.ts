@@ -26,17 +26,23 @@ export interface User {
   active: boolean
 }
 
-export type ClientStatus = 'ACTIVE' | 'INACTIVE'
+export type ClientStatus = 'ACTIVE' | 'INACTIVE' | 'ANONYMIZED'
+export type LegalBasis = 'CONTRACT_EXECUTION' | 'LEGITIMATE_INTEREST' | 'CONSENT'
 
 export interface Client {
   id: string
   name: string
   document: string
+  documentMasked?: string
   email: string
   phone?: string
   status: ClientStatus
   notifyEmail: boolean
   notifyWhatsapp: boolean
+  legalBasis?: LegalBasis
+  privacyNoticeVersion?: string
+  consentRecordedAt?: string
+  anonymizedAt?: string
   createdAt: string
 }
 
@@ -47,6 +53,8 @@ export interface ClientInput {
   phone?: string
   notifyEmail: boolean
   notifyWhatsapp: boolean
+  legalBasis?: LegalBasis
+  privacyNoticeVersion?: string
 }
 
 export type ProcessStatus = 'ACTIVE' | 'PAUSED' | 'ARCHIVED'
@@ -60,12 +68,15 @@ export interface Process {
   courtCode: string
   subject?: string
   status: ProcessStatus
+  confidential?: boolean
   situation: Situation
   unreadPublications: number
   lastError?: string
   lastCheckedAt?: string
   createdAt: string
 }
+
+export type PublicationSource = 'DJEN' | 'DATAJUD' | 'PJE'
 
 export interface Publication {
   id: string
@@ -78,7 +89,7 @@ export interface Publication {
   organName?: string
   content: string
   link?: string
-  source: 'DJEN' | 'PJE'
+  source: PublicationSource
   read: boolean
   readAt?: string
 }
@@ -90,7 +101,7 @@ export interface Movement {
   typeLabel: string
   description: string
   movementDate: string
-  source: 'DJEN' | 'PJE'
+  source: PublicationSource
 }
 
 export type Channel = 'EMAIL' | 'WHATSAPP'
@@ -159,6 +170,39 @@ export interface Tribunal {
   name: string
   state: string
   active: boolean
+}
+
+export interface SynchronizationResult {
+  received: number
+  created: number
+  updated: number
+}
+
+export interface CreateUserInput {
+  name: string
+  email: string
+  password: string
+  role: Role
+  clientId?: string
+}
+
+export interface AuditLog {
+  id: string
+  actorId?: string
+  actorEmail?: string
+  action: string
+  resourceType: string
+  resourceId: string
+  details?: Record<string, unknown>
+  correlationId?: string
+  occurredAt: string
+}
+
+export interface ClientDataExport {
+  exportedAt: string
+  client: Record<string, unknown>
+  processes: Record<string, unknown>[]
+  notifications: Record<string, unknown>[]
 }
 
 /** RFC 9457 Problem Details */

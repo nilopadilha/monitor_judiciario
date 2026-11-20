@@ -11,6 +11,7 @@ declare module 'vue-router' {
 }
 
 const staff: Role[] = ['ADMIN', 'MANAGER']
+const adminOnly: Role[] = ['ADMIN']
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -26,9 +27,14 @@ export const routes: RouteRecordRaw[] = [
       { path: '', name: 'dashboard', component: () => import('@/features/dashboard/DashboardView.vue'), meta: { title: 'Painel' } },
       { path: 'processos', name: 'processes', component: () => import('@/features/processes/ProcessesView.vue'), meta: { title: 'Processos' } },
       { path: 'processos/:id', name: 'process', component: () => import('@/features/processes/ProcessDetailView.vue'), meta: { title: 'Processo' } },
+      { path: 'publicacoes', name: 'publications', component: () => import('@/features/publications/PublicationsView.vue'), meta: { title: 'Publicações' } },
       { path: 'clientes', name: 'clients', component: () => import('@/features/clients/ClientsView.vue'), meta: { title: 'Clientes', roles: staff } },
       { path: 'notificacoes', name: 'notifications', component: () => import('@/features/notifications/NotificationsView.vue'), meta: { title: 'Notificações' } },
       { path: 'monitoramento', name: 'monitoring', component: () => import('@/features/monitoring/MonitoringView.vue'), meta: { title: 'Monitoramento', roles: staff } },
+      { path: 'tribunais', name: 'tribunals', component: () => import('@/features/tribunals/TribunalsView.vue'), meta: { title: 'Tribunais', roles: adminOnly } },
+      { path: 'usuarios', name: 'users', component: () => import('@/features/users/UsersView.vue'), meta: { title: 'Usuários', roles: adminOnly } },
+      { path: 'auditoria', name: 'audit', component: () => import('@/features/audit/AuditView.vue'), meta: { title: 'Auditoria', roles: adminOnly } },
+      { path: 'conta', name: 'account', component: () => import('@/features/account/AccountView.vue'), meta: { title: 'Minha Conta' } },
     ],
   },
   { path: '/:pathMatch(.*)*', redirect: '/' },

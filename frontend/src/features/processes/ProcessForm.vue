@@ -15,6 +15,7 @@ const clients = ref<Client[]>([])
 const clientId = ref('')
 const number = ref('')
 const subject = ref('')
+const confidential = ref(false)
 const saving = ref(false)
 const problem = ref<Problem | null>(null)
 
@@ -31,7 +32,12 @@ async function submit() {
   saving.value = true
   problem.value = null
   try {
-    const created = await processesApi.create({ clientId: clientId.value, number: number.value, subject: subject.value || undefined })
+    const created = await processesApi.create({
+      clientId: clientId.value,
+      number: number.value,
+      subject: subject.value || undefined,
+      confidential: confidential.value,
+    })
     emit('created', created)
   } catch (error) {
     problem.value = toProblem(error)
@@ -62,6 +68,10 @@ async function submit() {
     <Field id="subject" label="Assunto (opcional)">
       <Input id="subject" v-model="subject" maxlength="300" />
     </Field>
+    <label class="flex min-h-11 items-center gap-2 text-[14px]">
+      <input v-model="confidential" type="checkbox" class="size-4 accent-[var(--brand)]" />
+      Segredo de justiça (oculta trechos do teor em e-mail e WhatsApp)
+    </label>
     <ProblemAlert :problem="problem" />
     <Button type="submit" :loading="saving" :disabled="!clientId">Cadastrar processo</Button>
   </form>

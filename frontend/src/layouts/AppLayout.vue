@@ -1,19 +1,37 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { Activity, Bell, FileText, LayoutDashboard, LogOut, Users } from 'lucide-vue-next'
+import {
+  Activity,
+  Bell,
+  BookOpen,
+  Building2,
+  FileText,
+  LayoutDashboard,
+  LogOut,
+  ShieldCheck,
+  UserCog,
+  Users,
+} from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
 const router = useRouter()
 
+const isAdmin = computed(() => auth.role === 'ADMIN')
+
 const items = computed(() =>
   [
     { to: '/', label: 'Painel', icon: LayoutDashboard, show: true },
     { to: '/processos', label: 'Processos', icon: FileText, show: true },
+    { to: '/publicacoes', label: 'Publicações', icon: BookOpen, show: true },
     { to: '/clientes', label: 'Clientes', icon: Users, show: auth.isStaff },
     { to: '/notificacoes', label: 'Notificações', icon: Bell, show: true },
     { to: '/monitoramento', label: 'Monitoramento', icon: Activity, show: auth.isStaff },
+    { to: '/tribunais', label: 'Tribunais', icon: Building2, show: isAdmin.value },
+    { to: '/usuarios', label: 'Usuários', icon: UserCog, show: isAdmin.value },
+    { to: '/auditoria', label: 'Auditoria', icon: ShieldCheck, show: isAdmin.value },
+    { to: '/conta', label: 'Minha Conta', icon: ShieldCheck, show: true },
   ].filter((item) => item.show),
 )
 

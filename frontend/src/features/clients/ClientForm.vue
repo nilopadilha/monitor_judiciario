@@ -19,6 +19,8 @@ const form = reactive<ClientInput>({
   phone: props.client?.phone ?? '',
   notifyEmail: props.client?.notifyEmail ?? true,
   notifyWhatsapp: props.client?.notifyWhatsapp ?? false,
+  legalBasis: props.client?.legalBasis ?? 'CONTRACT_EXECUTION',
+  privacyNoticeVersion: props.client?.privacyNoticeVersion ?? '1.0',
 })
 const saving = ref(false)
 const problem = ref<Problem | null>(null)
@@ -57,6 +59,13 @@ async function submit() {
     </Field>
     <Field id="phone" label="Telefone (WhatsApp)" hint="Com DDD. Obrigatório para notificar por WhatsApp.">
       <Input id="phone" v-model="form.phone" type="tel" inputmode="tel" />
+    </Field>
+    <Field id="legalBasis" label="Base legal (LGPD)">
+      <select id="legalBasis" v-model="form.legalBasis" class="h-11 rounded-md border border-input bg-card px-3">
+        <option value="CONTRACT_EXECUTION">Execução de contrato (Art. 7º, V)</option>
+        <option value="LEGITIMATE_INTEREST">Legítimo interesse (Art. 7º, IX)</option>
+        <option value="CONSENT">Consentimento do titular (Art. 7º, I)</option>
+      </select>
     </Field>
     <fieldset class="flex flex-col gap-2">
       <legend class="text-[13px] font-semibold">Notificar por</legend>

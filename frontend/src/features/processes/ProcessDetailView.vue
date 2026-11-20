@@ -93,7 +93,12 @@ onMounted(loadPublications)
     <template v-if="process">
       <header class="flex flex-wrap items-end justify-between gap-4">
         <div class="flex flex-col gap-1">
-          <span class="text-label text-muted-foreground">{{ process.courtCode }} · {{ process.clientName }}</span>
+          <span class="text-label text-muted-foreground">
+            {{ process.courtCode }} · {{ process.clientName }}
+            <span v-if="process.confidential" class="ml-2 rounded bg-accent px-2 py-0.5 text-[11px] font-semibold text-foreground">
+              Segredo de justiça
+            </span>
+          </span>
           <h1 class="text-process-number text-[20px] leading-[28px]">{{ process.number }}</h1>
           <span class="text-caption">
             {{ process.subject ?? 'Sem assunto' }} · Última verificação: {{ formatDateTime(process.lastCheckedAt) }}
@@ -131,6 +136,7 @@ onMounted(loadPublications)
           <article v-for="p in publications" :key="p.id" class="flex flex-col gap-1 border-t border-border py-3">
             <div class="flex flex-wrap items-center gap-2 text-caption">
               <span>{{ formatDate(p.publicationDate) }}</span>
+              <span class="rounded bg-accent px-1.5 py-0.5 text-[11px] font-semibold">{{ p.source }}</span>
               <span>· {{ p.documentType ?? p.communicationType }}</span>
               <span v-if="p.organName">· {{ p.organName }}</span>
               <StatusBadge v-if="!p.read" situation="NEW_PUBLICATION" />
